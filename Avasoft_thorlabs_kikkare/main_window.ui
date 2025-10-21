@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>679</width>
+    <height>466</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QPushButton" name="StartMeasBtn">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>370</y>
+      <width>141</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Start Measurements</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="StopMeasBtn">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>400</y>
+      <width>141</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Stop Measurements</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="SaveRefBtn">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>20</y>
+      <width>101</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Save Reference</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="SaveDrkBtn">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>50</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Save Dark</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="SelectModeBox">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>400</y>
+      <width>91</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>Scope</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Absorbance</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Timeseries</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="PlotWidget" name="graph" native="true">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>20</y>
+      <width>461</width>
+      <height>371</height>
+     </rect>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>679</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="defaultUp">
+    <bool>false</bool>
+   </property>
+   <widget class="QMenu" name="menuSettings">
+    <property name="title">
+     <string>Settings</string>
+    </property>
+    <addaction name="actionAvasoft"/>
+    <addaction name="actionLinkam_RH95"/>
+    <addaction name="actionCoolLED"/>
+   </widget>
+   <widget class="QMenu" name="menuConnect">
+    <property name="title">
+     <string>Connect</string>
+    </property>
+    <addaction name="connectAvasoft"/>
+   </widget>
+   <addaction name="menuConnect"/>
+   <addaction name="menuSettings"/>
+  </widget>
+  <action name="actionAvasoft">
+   <property name="text">
+    <string>Avasoft</string>
+   </property>
+  </action>
+  <action name="actionLinkam_RH95">
+   <property name="text">
+    <string>Linkam RH95</string>
+   </property>
+  </action>
+  <action name="actionCoolLED">
+   <property name="text">
+    <string>CoolLED</string>
+   </property>
+  </action>
+  <action name="connectAvasoft">
+   <property name="text">
+    <string>Avasoft</string>
+   </property>
+  </action>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>PlotWidget</class>
+   <extends>QWidget</extends>
+   <header>pyqtgraph</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>StartMeasBtn</tabstop>
+  <tabstop>StopMeasBtn</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+</ui>
