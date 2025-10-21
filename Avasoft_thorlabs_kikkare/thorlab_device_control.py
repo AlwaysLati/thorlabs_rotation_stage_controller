@@ -2,11 +2,12 @@ import clr
 import os
 import time
 import sys
+import globals
 
 # Write in file paths of dlls needed.
-clr.AddReference("C:\\Users\\pdlauo\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.DeviceManagerCLI.dll")
-clr.AddReference("C:\\Users\\pdlauo\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.GenericMotorCLI.dll")
-clr.AddReference("C:\\Users\\pdlauo\\Thorlabs\\Kinesis\\ThorLabs.MotionControl.IntegratedStepperMotorsCLI.dll")
+clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.DeviceManagerCLI.dll")
+clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.GenericMotorCLI.dll")
+clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\ThorLabs.MotionControl.IntegratedStepperMotorsCLI.dll")
 clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\ThorLabs.MotionControl.KCube.SolenoidCLI.dll")
 
 # Import functions from dlls.
@@ -17,83 +18,119 @@ from Thorlabs.MotionControl.IntegratedStepperMotorsCLI import *
 from Thorlabs.MotionControl.KCube.SolenoidCLI import *
 from System import Decimal
 
-DEVICES = dict()
 
-def connect(serial_no, device_type):
-    """Attempts to connect to a Thorlabs device with a given serial number"""
-
-    try:
-
-
-def main():
-    """The main entry point for the application"""
-
-    # Uncomment this line if you are using
-    # SimulationManager.Instance.InitializeSimulations()
+def connect_all():
+    """Attempts to connect to all Thorlabs devices"""
 
     try:
-        # Build device list.
+        # Initialize device list.
         DeviceManagerCLI.BuildDeviceList()
+        serial_numbers = DeviceManagerCLI.GetDeviceList()
 
-        # create new device.
-        serial_no = "55360064"  # Replace this line with your device's serial number.
-        device = CageRotator.CreateCageRotator(serial_no)
+        if len(serial_numbers) == 0:
+            return ["Error", "No devices found"]
 
-        # Connect to device.
-        device.Connect(serial_no)
+        for serial_no in serial_numbers:
+            device_type = serial_no[:2]
 
-        # Ensure that the device settings have been initialized.
-        if not device.IsSettingsInitialized():
-            device.WaitForSettingsInitialized(10000)  # 10 second timeout.
-            assert device.IsSettingsInitialized() is True
+            if device_type == "55": #Integrated stepper driven rotation stage
+                device = CageRotator.CreateCageRotator(serial_no)
+                device.Connect(serial_no)
 
-        # Start polling loop and enable device.
-        device.StartPolling(250)  # 250ms polling rate.
-        time.sleep(0.25)
-        device.EnableDevice()
-        time.sleep(25)  # Wait for device to enable.
+                # Ensure that the device settings have been initialized.
+                if not device.IsSettingsInitialized():
+                    device.WaitForSettingsInitialized(10000)  # 10 second timeout.
+                    assert device.IsSettingsInitialized() is True
 
-        # Get Device Information and display description.
-        device_info = device.GetDeviceInfo()
-        print(device_info.Description)
+                # Start polling loop and enable device.
+                device.StartPolling(250)  # 250ms polling rate.
+                time.sleep(0.25)
+                device.EnableDevice()
+                time.sleep(0.25)  # Wait for device to enable.
 
-        # Load any configuration settings needed by the controller/stage.
-        device.LoadMotorConfiguration(serial_no, DeviceConfiguration.DeviceSettingsUseOptionType.UseDeviceSettings)
-        motor_config = device.LoadMotorConfiguration(serial_no)
+                device.LoadMotorConfiguration(serial_no,
+                                              DeviceConfiguration.DeviceSettingsUseOptionType.UseFileSettings)
 
-        # Call device methods.
-        print("Homing Device")
-        device.Home(60000)  # 60 second timeout.
-        print("Done")
+                globals.thorlabs_device_list[serial_no] = device
 
-        new_direction_forward = MotorDirection.Forward
-        new_direction_backward = MotorDirection.Backward
-        # new_velocity = 10 Only if using .MoveContinuousAtVelocity
+            elif device_type == "68": #K-Cube solenoid Driver
+                device = KCubeSolenoid.CreateKCubeSolenoid(serial_no)
+                device.Connect(serial_no)
 
-        input("Press enter to initialize move")
-        print("Press ctrl+c to stop movement")
+                # Ensure that the device settings have been initialized.
+                if not device.IsSettingsInitialized():
+                    device.WaitForSettingsInitialized(10000)  # 10 second timeout.
+                    assert device.IsSettingsInitialized() is True
 
-        try:
-            device.MoveContinuous(MotorDirection.Forward)  # Set direction of Move
-            # device.MoveContinuousAtVelocity('Forward', new_velocity)
-            while True:
-                time.sleep(.1)
+                # Start polling loop and enable device.
+                device.StartPolling(250)  # 250ms polling rate.
+                time.sleep(0.25)
+                device.EnableDevice()
+                time.sleep(0.25)  # Wait for device to enable.
 
+                device.SetOperatingMode(SolenoidStatus.OperatingModes.Manual)
 
+                globals.thorlabs_device_list[serial_no] = device
 
+            else:
+                return ["Error", "Unknown device found"]
 
-        except KeyboardInterrupt:
-            print("Move Cancelled by User")
-            device.StopImmediate()  # Stop device, polling loop and disconnect device before program finishes.
-            device.StopPolling()
-            device.Disconnect()
+        return ["Info", f"Connected to {len(serial_numbers)} Thorlabs devices"]
 
     except Exception as e:
         print(e)
 
-    # Uncomment this line if you are using Simulations
-    # SimulationManager.Instance.UninitializeSimulations()
+
+def disconnect_all():
+    for device in globals.thorlabs_device_list:
+        device.StopPolling()
+        device.Disconnect()
+
+    return
 
 
-if __name__ == "__main__":
-    main()
+def toggle_solenoid(serial_no):
+    device = globals.thorlabs_device_list.get(serial_no)
+
+    if device is None or serial_no[:2] != "68":
+        return
+
+    state = device.GetOperatingState()
+    if state == SolenoidStatus.OperatingStates.Active:
+        device.SetOperatingState(SolenoidStatus.OperatingStates.Inactive)
+    else:
+        device.SetOperatingState(SolenoidStatus.OperatingStates.Active)
+
+    return
+
+
+def home_rotation_mount(serial_no):
+    device = globals.thorlabs_device_list.get(serial_no)
+
+    if device is None or serial_no[:2] != "55":
+        return ["Error", "Unable to home device"]
+
+    try:
+        # 60 second timeout, function will wait until the move completes or the timeout elapses, whichever comes first.
+        device.Home(60000)
+        return ["Info", "Homed device"]
+
+    except Exception as e:
+        print(e)
+        return ["Error", "Unable to home device"]
+
+
+def set_rotation_mount_pos(serial_no, new_pos):
+    device = globals.thorlabs_device_list.get(serial_no)
+
+    if device is None or serial_no[:2] != "55":
+        return
+
+    try:
+        pos = Decimal(new_pos)  # Must be a .NET decimal.
+        device.MoveTo(pos, 60000)  # 60 second timeout.
+
+    except Exception as e:
+        print(e)
+
+    return

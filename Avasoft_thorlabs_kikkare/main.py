@@ -7,6 +7,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 import pyqtgraph as pg
 from avaspec import *
+import thorlab_device_control as tlab
 import time
 import math
 from statistics import *
@@ -74,6 +75,33 @@ class AvaSettingWindow(ava_ui_class, ava_baseclass):
         globals.save_to_folder = self.SaveToFolderEdt.text()
 
 
+rotation_mount_widget_class, rotation_mount_widget_baseclass = pg.Qt.loadUiType("rotation_mount_settings_widget.ui")
+class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_baseclass):
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+
+
+rotation_mount_ui_class, rotation_mount_baseclass = pg.Qt.loadUiType("rotation_mount_settings_window.ui")
+class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_baseclass):
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+
+        self.setWindowTitle("Thorlabs Rotation Mount Settings")
+
+        self.tabs = dict()
+
+    @pyqtSlot()
+    def AddTabs(self):
+        for device_id in globals.thorlabs_device_list.keys():
+            if device_id[:2] == "55":
+                new_rotation_mount = RotationMountWidget()
+                self.tabs[device_id] = new_rotation_mount
+                self.RotationMountSelection.addTab(new_rotation_mount, f"{device_id}")
+        return
+
+
 link_ui_class, link_baseclass = pg.Qt.loadUiType("link_settings_window.ui")
 class LinkSettingWindow(link_ui_class, link_baseclass):
     """
@@ -133,6 +161,11 @@ class MainWindow(main_ui_class, main_baseclass):
             lambda checked : self.toggleWindow(self.ava_settings_window)
         )
 
+        self.rotation_mount_settings_window = RotationMountSettingWindow()
+        self.actionRotation_Mount.triggered.connect(
+            lambda checked: self.toggleWindow(self.rotation_mount_settings_window)
+        )
+
         self.link_settings_window = LinkSettingWindow()
         self.actionLinkam_RH95.triggered.connect(
             lambda checked : self.toggleWindow(self.link_settings_window)
@@ -156,10 +189,16 @@ class MainWindow(main_ui_class, main_baseclass):
         self.SaveDrkBtn.clicked.connect(self.SaveDrkBtn_clicked)
         self.SelectModeBox.currentTextChanged.connect(self.Mode_changed)
         self.connectAvasoft.triggered.connect(self.OpenCommBtn_clicked)
+        self.connectThorlabs.triggered.connect(self.ConnectThorlabsBtn_clicked)
 
         self.graph.setBackground("w")
         self.initPlot(None, None, None, "", "")
-        
+
+    def closeEvent(self, event):
+        tlab.disconnect_all()
+
+        event.accept()
+
     @pyqtSlot()
     def toggleWindow(self, window):
         if window.isVisible():
@@ -195,10 +234,16 @@ class MainWindow(main_ui_class, main_baseclass):
         return
 
     @pyqtSlot()
+    def ConnectThorlabsBtn_clicked(self):
+        msg = tlab.connect_all()
+        self.rotation_mount_settings_window.AddTabs()
+        QMessageBox.information(self, msg[0], msg[1])
+        return
+
+    @pyqtSlot()
     def StartMeasBtn_clicked(self):
         """
         Main method for running all measurements depending on the mode selected.
-        TODO: Despaghettify
 
         :return:
         """

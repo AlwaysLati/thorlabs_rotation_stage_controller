@@ -17,7 +17,8 @@ else: # Windows will have 'win32' or 'cygwin'
         WM_MEAS_READY = 0x8001
         # Entire path needs to be specified for the avaspecx64.dll file, otherwise the program won't work.
         # This is an unresolved problem with WinDLL
-        lib = ctypes.WinDLL(r"C:\Users\pdlauo\Desktop\PycharmProjects\Avasoft_thorlabs_kikkare\avaspecx64.dll")
+        lib = ctypes.WinDLL(r"C:\Users\Lauri\Documents\Python\thorlabs_kikkare\Avasoft_thorlabs_kikkare\Avaspec\avaspecx64.dll")
+        # C:\Users\pdlauo\Desktop\PycharmProjects\Avasoft_thorlabs_kikkare\avaspecx64.dll
         func = ctypes.WINFUNCTYPE
     else:
         WM_MEAS_READY = 0x0401

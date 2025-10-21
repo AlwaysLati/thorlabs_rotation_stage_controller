@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>679</width>
-    <height>466</height>
+    <height>456</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -108,17 +108,21 @@
      <x>0</x>
      <y>0</y>
      <width>679</width>
-     <height>22</height>
+     <height>33</height>
     </rect>
    </property>
    <property name="defaultUp">
     <bool>false</bool>
+   </property>
+   <property name="nativeMenuBar">
+    <bool>true</bool>
    </property>
    <widget class="QMenu" name="menuSettings">
     <property name="title">
      <string>Settings</string>
     </property>
     <addaction name="actionAvasoft"/>
+    <addaction name="actionRotation_Mount"/>
     <addaction name="actionLinkam_RH95"/>
     <addaction name="actionCoolLED"/>
    </widget>
@@ -127,6 +131,7 @@
      <string>Connect</string>
     </property>
     <addaction name="connectAvasoft"/>
+    <addaction name="connectThorlabs"/>
    </widget>
    <addaction name="menuConnect"/>
    <addaction name="menuSettings"/>
@@ -149,6 +154,16 @@
   <action name="connectAvasoft">
    <property name="text">
     <string>Avasoft</string>
+   </property>
+  </action>
+  <action name="connectThorlabs">
+   <property name="text">
+    <string>Thorlabs</string>
+   </property>
+  </action>
+  <action name="actionRotation_Mount">
+   <property name="text">
+    <string>Rotation Mount</string>
    </property>
   </action>
  </widget>
