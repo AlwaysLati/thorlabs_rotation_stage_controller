@@ -1,18 +1,25 @@
 import sys
 import platform
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from PyQt5 import uic
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-import pyqtgraph as pg
+
 from avaspec import *
 import thorlab_device_control as tlab
+from pylinkam import interface, sdk
+import globals
+
+import pyqtgraph as pg
 import time
 import math
 from statistics import *
-from pylinkam import interface, sdk
-import globals
+from itertools import product
+from collections import defaultdict
 
 
 ava_ui_class, ava_baseclass = pg.Qt.loadUiType("ava_settings_window.ui")
@@ -90,6 +97,8 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
 
         self.setWindowTitle("Thorlabs Rotation Mount Settings")
 
+        #self.SavePositionListBtn.clicked.connect(self.savePositions)
+
         self.tabs = dict()
 
     @pyqtSlot()
@@ -100,6 +109,17 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
                 self.tabs[device_id] = new_rotation_mount
                 self.RotationMountSelection.addTab(new_rotation_mount, f"{device_id}")
         return
+
+    def savePositions(self):
+        currentTab = self.RotationMountSelection.currentWidget()
+        device_id = str(currentTab.objectName())
+
+        min_pos = 0
+        max_pos = 360
+        pos_interval = 10
+
+        for pos in range(min_pos, max_pos, pos_interval):
+            globals.rotation_mount_positions[device_id].append(int(pos))
 
 
 link_ui_class, link_baseclass = pg.Qt.loadUiType("link_settings_window.ui")
@@ -177,7 +197,7 @@ class MainWindow(main_ui_class, main_baseclass):
         )
 
         self.StartMeasBtn.setEnabled(False)
-        self.StopMeasBtn.setEnabled(False)
+        self.StopMeasBtn.setEnabled(True)
         self.SaveRefBtn.setEnabled(False)
         self.SaveDrkBtn.setEnabled(False)
         self.measurement_mode = self.SelectModeBox.currentText()
@@ -289,10 +309,14 @@ class MainWindow(main_ui_class, main_baseclass):
 
         :return:
         """
-        ret = AVS_StopMeasure(globals.dev_handle)
-        globals.stopscanning = True
-        self.StartMeasBtn.setEnabled(True)
-        self.repaint()
+        #ret = AVS_StopMeasure(globals.dev_handle)
+        #globals.stopscanning = True
+        #self.StartMeasBtn.setEnabled(True)
+        #self.repaint()
+
+        tlab.toggle_solenoid("68250034")
+        #tlab.home_rotation_mount("55360064")
+
         return
 
     @pyqtSlot()
@@ -302,6 +326,46 @@ class MainWindow(main_ui_class, main_baseclass):
 
         :return:
         """
+
+        """
+        if saveSingular:
+            self.measureScope()
+            saveToNewFile("Reference", globals.wavelength, globals.spectraldata)
+            globals.referencedata = readFile(self, "Reference.txt")[1]
+        
+            self.initPlot(globals.min_wavelength, globals.max_wavelength,None,"Wavelength (nm)","Counts (#)")
+            self.plot(globals.wavelength,globals.referencedata)
+        
+            time.sleep(0.001)
+            return
+        
+        elif saveAtMultipleAngles:
+            if len(globals.rotation_mount_positions) = 0;
+                return error
+            
+            all_rotation_mount_positions = list()
+            for id, positions in globals.rotation_mount_positions.items():
+                all_positions = list()
+                for pos in positions:
+                    all_positions.append(f"{id}_{pos}")
+                all_rotation_mount_positions.append(all_positions)
+            
+            all_position_combinations = defaultdict(dict)
+            for unique_pos_combination in product(*all_rotation_mount_positions):
+                pos_id = ""
+                pos_combination = dict()
+                for i in unique_pos_combination:
+                    pos_id += f"str(i);"
+                    id = i.split('_')[0]
+                    pos = i.split('_')[1]
+                    pos_combination[id] = pos
+                
+                all_position_combinations[pos_id] = pos_combination
+            
+            
+            
+        """
+
         self.measureScope()
         saveToNewFile("Reference", globals.wavelength, globals.spectraldata)
         globals.referencedata = readFile(self, "Reference.txt")[1]
@@ -516,7 +580,7 @@ def setRH(RH,plateau_tolerance):
 def pulseLED(wavelength,pulse):
     """
     TODO: Implement CoolLED light pulse control. Use the CoolLED_control.py file as a guide. Depending on how the LED
-    TODO: control is implemented it might not make sense to do this in a separate function
+    TODO: control is implemented, it might not make sense to do this in a separate function
 
     :param wavelength:
     :param pulse:

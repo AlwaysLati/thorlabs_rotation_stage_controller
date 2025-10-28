@@ -3,9 +3,9 @@ import time
 import sys
 import clr
 
-clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.DeviceManagerCLI.dll")
-clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.GenericMotorCLI.dll")
-clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\ThorLabs.MotionControl.KCube.SolenoidCLI.dll")
+clr.AddReference("C:\\Users\\pdlauo\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.DeviceManagerCLI.dll")
+clr.AddReference("C:\\Users\\pdlauo\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.GenericMotorCLI.dll")
+clr.AddReference("C:\\Users\\pdlauo\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.KCube.SolenoidCLI.dll")
 from Thorlabs.MotionControl.DeviceManagerCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
 from Thorlabs.MotionControl.KCube.SolenoidCLI import *
@@ -19,10 +19,15 @@ def main():
 
     try:
 
+        SimulationManager.Instance.InitializeSimulations()
         DeviceManagerCLI.BuildDeviceList()
+        serial_numbers = DeviceManagerCLI.GetDeviceList()
+        print(len(serial_numbers))
+        for i in serial_numbers:
+            print(i)
 
         # create new device
-        serial_no = "68250034"  # Replace this line with your device's serial number
+        serial_no = '68250034'  # Replace this line with your device's serial number
 
         # Connect
         device = KCubeSolenoid.CreateKCubeSolenoid(serial_no)
@@ -60,7 +65,7 @@ def main():
         print(e)
 
     # Uncomment this line if you are using Simulations
-    # SimulationManager.Instance.UninitializeSimulations()
+    SimulationManager.Instance.UninitializeSimulations()
 
 
 if __name__ == "__main__":

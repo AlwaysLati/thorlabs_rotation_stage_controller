@@ -1,4 +1,6 @@
-﻿""" Avaspec Data """
+﻿from collections import defaultdict
+
+""" Avaspec Data """
 dev_handle = 0
 pixels = 4096
 wavelength_full = [0.0] * 4096
@@ -6,6 +8,9 @@ wavelength = [0.0] * 4096
 spectraldata = [0.0] * 4096
 referencedata = [0.0] * 4096
 darkdata = [0.0] * 4096
+
+rotated_referencedata = dict()
+
 
 """ Avaspec  Parameters """
 int_time = 5
@@ -20,7 +25,8 @@ max_integral = 0
 integral_multiplier = 0
 
 """ Thorlabs Devices"""
-thorlabs_device_list = dict()
+thorlabs_device_list = dict()   # "device_id" : Device
+rotation_mount_positions = defaultdict(list)   # "device_id" : [position]
 
 """ Linkam stuff """
 save_every_n = 0

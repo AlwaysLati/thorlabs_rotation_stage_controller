@@ -1,9 +1,12 @@
 ﻿import sys
+import os
 import inspect
 import ctypes
 import struct
 from PyQt5.QtCore import *
 from enum import Enum
+
+PATH = str(os.environ["AVASPEC_PATH"])
 
 if 'linux' in sys.platform: # Linux will have 'linux' or 'linux2'
     lib = ctypes.CDLL("/usr/local/lib/libavs.so.0")
@@ -17,8 +20,7 @@ else: # Windows will have 'win32' or 'cygwin'
         WM_MEAS_READY = 0x8001
         # Entire path needs to be specified for the avaspecx64.dll file, otherwise the program won't work.
         # This is an unresolved problem with WinDLL
-        lib = ctypes.WinDLL(r"C:\Users\Lauri\Documents\Python\thorlabs_kikkare\Avasoft_thorlabs_kikkare\Avaspec\avaspecx64.dll")
-        # C:\Users\pdlauo\Desktop\PycharmProjects\Avasoft_thorlabs_kikkare\avaspecx64.dll
+        lib = ctypes.WinDLL(f"{PATH}\\avaspecx64.dll")
         func = ctypes.WINFUNCTYPE
     else:
         WM_MEAS_READY = 0x0401

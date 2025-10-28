@@ -4,11 +4,13 @@ import time
 import sys
 import globals
 
+PATH = str(os.environ["THORLABS_PATH"])
+
 # Write in file paths of dlls needed.
-clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.DeviceManagerCLI.dll")
-clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.GenericMotorCLI.dll")
-clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\ThorLabs.MotionControl.IntegratedStepperMotorsCLI.dll")
-clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\ThorLabs.MotionControl.KCube.SolenoidCLI.dll")
+clr.AddReference(f"{PATH}\\Thorlabs.MotionControl.DeviceManagerCLI.dll")
+clr.AddReference(f"{PATH}\\Thorlabs.MotionControl.GenericMotorCLI.dll")
+clr.AddReference(f"{PATH}\\ThorLabs.MotionControl.IntegratedStepperMotorsCLI.dll")
+clr.AddReference(f"{PATH}\\ThorLabs.MotionControl.KCube.SolenoidCLI.dll")
 
 # Import functions from dlls.
 from Thorlabs.MotionControl.DeviceManagerCLI import *
