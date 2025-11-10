@@ -6,10 +6,10 @@ pixels = 4096
 wavelength_full = [0.0] * 4096
 wavelength = [0.0] * 4096
 spectraldata = [0.0] * 4096
-referencedata = [0.0] * 4096
+#referencedata = [0.0] * 4096
 darkdata = [0.0] * 4096
 
-rotated_referencedata = dict()
+referencedata = dict()
 
 
 """ Avaspec  Parameters """
@@ -27,6 +27,7 @@ integral_multiplier = 0
 """ Thorlabs Devices"""
 thorlabs_device_list = dict()   # "device_id" : Device
 rotation_mount_positions = defaultdict(list)   # "device_id" : [position]
+mount_position_combinations = defaultdict(dict)
 
 """ Linkam stuff """
 save_every_n = 0

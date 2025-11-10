@@ -88,6 +88,25 @@ class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_bas
         super().__init__()
         self.setupUi(self)
 
+        self.StartPos.valueChanged.connect(self.PosParams_changed)
+        self.EndPos.valueChanged.connect(self.PosParams_changed)
+        self.RotationStep.valueChanged.connect(self.PosParams_changed)
+        self.saveBtn.clicked.connect(self.TestBtn)
+
+    def PosParams_changed(self):
+        device_id = str(self.objectName())
+
+        min_pos = self.StartPos.value()
+        max_pos = self.EndPos.value()
+        pos_interval = self.RotationStep.value()
+
+        for pos in range(min_pos, max_pos, pos_interval):
+            globals.rotation_mount_positions[device_id].append(int(pos))
+
+
+    def TestBtn(self):
+        pass
+
 
 rotation_mount_ui_class, rotation_mount_baseclass = pg.Qt.loadUiType("rotation_mount_settings_window.ui")
 class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_baseclass):
@@ -110,16 +129,26 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
                 self.RotationMountSelection.addTab(new_rotation_mount, f"{device_id}")
         return
 
-    def savePositions(self):
-        currentTab = self.RotationMountSelection.currentWidget()
-        device_id = str(currentTab.objectName())
+    def calculatePositionCombinations(self):
+        # Creating unique identifiers for every position of each mount
+        all_rotation_mount_positions = list()
+        for mount_id, positions in globals.rotation_mount_positions.items():
+            pos_ids = list()
+            for pos in positions:
+                pos_ids.append(f"{mount_id}_{pos}")
+            all_rotation_mount_positions.append(pos_ids)
 
-        min_pos = 0
-        max_pos = 360
-        pos_interval = 10
+        for unique_pos_combination in product(*all_rotation_mount_positions):
+            pos_combination_id = ""
+            pos_combination = dict()
 
-        for pos in range(min_pos, max_pos, pos_interval):
-            globals.rotation_mount_positions[device_id].append(int(pos))
+            for i in unique_pos_combination:
+                mount_id = i.split('_')[0]
+                pos = i.split('_')[1]
+                pos_combination[mount_id] = pos
+                pos_combination_id += f"{pos}_"
+
+            globals.mount_position_combinations[pos_combination_id] = pos_combination
 
 
 link_ui_class, link_baseclass = pg.Qt.loadUiType("link_settings_window.ui")
@@ -197,7 +226,7 @@ class MainWindow(main_ui_class, main_baseclass):
         )
 
         self.StartMeasBtn.setEnabled(False)
-        self.StopMeasBtn.setEnabled(True)
+        self.StopMeasBtn.setEnabled(False)
         self.SaveRefBtn.setEnabled(False)
         self.SaveDrkBtn.setEnabled(False)
         self.measurement_mode = self.SelectModeBox.currentText()
@@ -210,6 +239,9 @@ class MainWindow(main_ui_class, main_baseclass):
         self.SelectModeBox.currentTextChanged.connect(self.Mode_changed)
         self.connectAvasoft.triggered.connect(self.OpenCommBtn_clicked)
         self.connectThorlabs.triggered.connect(self.ConnectThorlabsBtn_clicked)
+
+        self.testRotBtn.clicked.connect(self.ChangePosition)
+        self.testShutterBtn.clicked.connect(self.ToggleShutter)
 
         self.graph.setBackground("w")
         self.initPlot(None, None, None, "", "")
@@ -225,6 +257,21 @@ class MainWindow(main_ui_class, main_baseclass):
             window.hide()
         else:
             window.show()
+
+    @pyqtSlot()
+    def ChangePosition(self):
+        id = "55507804"
+        pos_list = globals.rotation_mount_positions.get(id)
+
+        if pos_list is None:
+            print("Error")
+            return
+
+        for pos in pos_list:
+            tlab.set_rotation_mount_pos(id, pos)
+
+    def ToggleShutter(self):
+        tlab.toggle_solenoid("68250034")
 
     @pyqtSlot()
     def OpenCommBtn_clicked(self):
@@ -292,7 +339,7 @@ class MainWindow(main_ui_class, main_baseclass):
                     break
 
                 abs_spectra = self.measureAbs()
-                self.plot(globals.wavelength,abs_spectra)
+                self.plot(globals.wavelength, abs_spectra)
                 time.sleep(0.01)
 
 
@@ -309,13 +356,10 @@ class MainWindow(main_ui_class, main_baseclass):
 
         :return:
         """
-        #ret = AVS_StopMeasure(globals.dev_handle)
-        #globals.stopscanning = True
-        #self.StartMeasBtn.setEnabled(True)
-        #self.repaint()
-
-        tlab.toggle_solenoid("68250034")
-        #tlab.home_rotation_mount("55360064")
+        ret = AVS_StopMeasure(globals.dev_handle)
+        globals.stopscanning = True
+        self.StartMeasBtn.setEnabled(True)
+        self.repaint()
 
         return
 
@@ -327,53 +371,30 @@ class MainWindow(main_ui_class, main_baseclass):
         :return:
         """
 
-        """
-        if saveSingular:
+        if len(globals.mount_position_combinations) == 0:
             self.measureScope()
-            saveToNewFile("Reference", globals.wavelength, globals.spectraldata)
-            globals.referencedata = readFile(self, "Reference.txt")[1]
-        
-            self.initPlot(globals.min_wavelength, globals.max_wavelength,None,"Wavelength (nm)","Counts (#)")
-            self.plot(globals.wavelength,globals.referencedata)
-        
+            reference_data = globals.spectraldata
+            globals.referencedata[""] = reference_data
+
+            self.initPlot(globals.min_wavelength, globals.max_wavelength, None, "Wavelength (nm)", "Counts (#)")
+            self.plot(globals.wavelength, reference_data)
+
             time.sleep(0.001)
-            return
-        
-        elif saveAtMultipleAngles:
-            if len(globals.rotation_mount_positions) = 0;
-                return error
-            
-            all_rotation_mount_positions = list()
-            for id, positions in globals.rotation_mount_positions.items():
-                all_positions = list()
-                for pos in positions:
-                    all_positions.append(f"{id}_{pos}")
-                all_rotation_mount_positions.append(all_positions)
-            
-            all_position_combinations = defaultdict(dict)
-            for unique_pos_combination in product(*all_rotation_mount_positions):
-                pos_id = ""
-                pos_combination = dict()
-                for i in unique_pos_combination:
-                    pos_id += f"str(i);"
-                    id = i.split('_')[0]
-                    pos = i.split('_')[1]
-                    pos_combination[id] = pos
-                
-                all_position_combinations[pos_id] = pos_combination
-            
-            
-            
-        """
 
-        self.measureScope()
-        saveToNewFile("Reference", globals.wavelength, globals.spectraldata)
-        globals.referencedata = readFile(self, "Reference.txt")[1]
+        else:
+            for pos_combination_id, pos_combination in globals.mount_position_combinations.items():
+                for mount_id, position in pos_combination.items():
+                    tlab.set_rotation_mount_pos(mount_id, position)
 
-        self.initPlot(globals.min_wavelength, globals.max_wavelength,None,"Wavelength (nm)","Counts (#)")
-        self.plot(globals.wavelength,globals.referencedata)
+                self.measureScope()
+                reference_data = globals.spectraldata
+                globals.referencedata[pos_combination_id] = reference_data
 
-        time.sleep(0.001)
+                self.initPlot(globals.min_wavelength, globals.max_wavelength, None, "Wavelength (nm)", "Counts (#)")
+                self.plot(globals.wavelength, reference_data)
+
+                time.sleep(0.001)
+
         return
 
     @pyqtSlot()
@@ -384,8 +405,7 @@ class MainWindow(main_ui_class, main_baseclass):
         :return:
         """
         self.measureScope()
-        saveToNewFile("Dark", globals.wavelength, globals.spectraldata)
-        globals.darkdata = readFile(self, "Dark.txt")[1]
+        globals.darkdata = globals.spectraldata
 
         self.initPlot(globals.min_wavelength, globals.max_wavelength, None, "Wavelength (nm)", "Counts (#)")
         self.plot(globals.wavelength, globals.darkdata)
@@ -443,19 +463,18 @@ class MainWindow(main_ui_class, main_baseclass):
         return
 
     @pyqtSlot()
-    def measureAbs(self):
+    def measureAbs(self, ref_id):
         """
         Calculates a sample's absorbance spectrum by comparing its scope to previously saved reference and dark files.
 
         :return:
         """
-        ref = readFile(self, "Reference.txt")[1]
-        drk = readFile(self, "Dark.txt")[1]
+        ref = globals.referencedata.get(ref_id)
         self.measureScope()
 
         # Absorbance formula from Avasoft 8 documentation
         try:
-            abs_spectra = [-math.log10((s - d) / (r - d)) for r, s, d in zip(ref, globals.spectraldata, drk)]
+            abs_spectra = [-math.log10((s - d) / (r - d)) for r, s, d in zip(ref, globals.spectraldata, globals.darkdata)]
         except (ValueError, ZeroDivisionError): # Catches any errors and returns a list full of zeros
             abs_spectra = [0.0] * len(globals.spectraldata)
             # abs = [0 for _ in range(len(globals.spectraldata))]
