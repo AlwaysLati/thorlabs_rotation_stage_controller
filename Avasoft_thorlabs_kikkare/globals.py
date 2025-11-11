@@ -29,6 +29,8 @@ thorlabs_device_list = dict()   # "device_id" : Device
 rotation_mount_positions = defaultdict(list)   # "device_id" : [position]
 mount_position_combinations = defaultdict(dict)
 
+solenoid_open_timers = list()
+
 """ Linkam stuff """
 save_every_n = 0
 meas_per_RH = 0

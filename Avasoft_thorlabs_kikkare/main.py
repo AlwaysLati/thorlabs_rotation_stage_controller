@@ -9,6 +9,7 @@ from PyQt5 import uic
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
+from PyQt5 import QtTest
 
 from avaspec import *
 import thorlab_device_control as tlab
@@ -274,8 +275,18 @@ class MainWindow(main_ui_class, main_baseclass):
         for pos in pos_list:
             tlab.set_rotation_mount_pos(id, pos)
 
+    @pyqtSlot()
     def ToggleShutter(self):
-        tlab.toggle_solenoid("68250034")
+        self.testShutterBtn.setEnabled(False)
+        globals.solenoid_open_timers = readShutterTimers()
+
+        for shutter_open_for in globals.solenoid_open_timers:
+            tlab.open_shutter("68250034")
+            print(shutter_open_for)
+            QtTest.QTest.qWait(shutter_open_for*1000)
+            tlab.close_shutter("68250034")
+
+        self.testShutterBtn.setEnabled(True)
 
     @pyqtSlot()
     def OpenCommBtn_clicked(self):
@@ -309,8 +320,11 @@ class MainWindow(main_ui_class, main_baseclass):
         msg = tlab.connect_all()
         QMessageBox.information(self, msg[0], msg[1])
 
-        if msg[0] != "Error":
+        if msg[0] == "Error":
+            return
+        else:
             self.rotation_mount_settings_window.AddTabs()
+            self.connectThorlabs.setEnabled(False)
 
         return
 
@@ -398,7 +412,7 @@ class MainWindow(main_ui_class, main_baseclass):
 
                 #self.measureScope()
                 reference_data = globals.spectraldata
-                #globals.referencedata[pos_combination_id] = reference_data
+                globals.referencedata[pos_combination_id] = reference_data
 
                 saveToNewFile(f"reference_{pos_combination_id}", "ref", globals.wavelength, reference_data)
 
@@ -562,7 +576,7 @@ def setRH(RH,plateau_tolerance):
         with wrapper.connect() as connection:
             # Every message sent to the RH controller needs to be followed by short wait to ensure it goes through
             connection.enable_humidity(True)
-            time.sleep(1)
+            QtTest.QTest.qWait(1000)
 
             # Determining an initial RH setpoint based on how far away the current RH value is
             init_rh = connection.get_value(interface.StageValueType.HUMIDITY)
@@ -584,10 +598,10 @@ def setRH(RH,plateau_tolerance):
                 if n == 6:
                     # Returns if RH has remained the same for 30 s
                     connection.set_value(interface.StageValueType.MANUAL_HUMIDITY_SETPOINT, RH)
-                    time.sleep(1)
+                    QtTest.QTest.qWait(1000)
                     return
                 else:
-                    time.sleep(5)
+                    QtTest.QTest.qWait(5000)
 
                 # Increment by one, if the measured RH close enough to the setpoint. Reset count otherwise
                 current_rh = connection.get_value(interface.StageValueType.HUMIDITY)
@@ -654,8 +668,25 @@ def saveToNewFile(file_name, folder, x, y):
         return
 
 
+def readShutterTimers():
+    file_output = []
 
-def readFile(parent, file_name):
+    complete_file_path = os.path.join(PROJECT_PATH, "shutter_timer.txt")
+    if not os.path.exists(complete_file_path):
+        return []
+
+    try:
+        with open(f"{complete_file_path}", "r") as fh:
+            for line in fh:
+                file_output.append(int(line.strip()))
+
+        return file_output
+
+    except ValueError:
+        return []
+
+
+def readSpectrumFile(parent, file_name):
     """
     Reads a spectrum/wavelength file and returns them as to separate lists
 

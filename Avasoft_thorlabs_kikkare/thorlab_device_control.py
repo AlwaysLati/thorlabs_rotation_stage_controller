@@ -98,7 +98,7 @@ def disconnect_all():
     return
 
 
-def toggle_solenoid(serial_no):
+def toggle_shutter(serial_no):
     device = globals.thorlabs_device_list.get(serial_no)
 
     if device is None or serial_no[:2] != "68":
@@ -110,6 +110,30 @@ def toggle_solenoid(serial_no):
     else:
         device.SetOperatingState(SolenoidStatus.OperatingStates.Active)
 
+    return
+
+
+def open_shutter(serial_no):
+    device = globals.thorlabs_device_list.get(serial_no)
+
+    if device is None or serial_no[:2] != "68":
+        return
+
+    device.SetOperatingState(SolenoidStatus.OperatingStates.Active)
+
+    time.sleep(0.25)
+    return
+
+
+def close_shutter(serial_no):
+    device = globals.thorlabs_device_list.get(serial_no)
+
+    if device is None or serial_no[:2] != "68":
+        return
+
+    device.SetOperatingState(SolenoidStatus.OperatingStates.Inactive)
+
+    time.sleep(0.25)
     return
 
 
