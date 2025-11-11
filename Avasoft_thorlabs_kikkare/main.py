@@ -3,6 +3,7 @@ import platform
 import os
 from dotenv import load_dotenv
 load_dotenv()
+PROJECT_PATH = str(os.environ["PROJECT_PATH"])
 
 from PyQt5 import uic
 from PyQt5.QtCore import *
@@ -84,24 +85,28 @@ class AvaSettingWindow(ava_ui_class, ava_baseclass):
 
 rotation_mount_widget_class, rotation_mount_widget_baseclass = pg.Qt.loadUiType("rotation_mount_settings_widget.ui")
 class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_baseclass):
-    def __init__(self):
+    def __init__(self, device_id):
         super().__init__()
         self.setupUi(self)
 
         self.StartPos.valueChanged.connect(self.PosParams_changed)
         self.EndPos.valueChanged.connect(self.PosParams_changed)
         self.RotationStep.valueChanged.connect(self.PosParams_changed)
-        self.saveBtn.clicked.connect(self.TestBtn)
+        #self.saveBtn.clicked.connect(self.TestBtn)
+
+        self.device_id = device_id
+
+        self.PosParams_changed()
 
     def PosParams_changed(self):
-        device_id = str(self.objectName())
+        min_pos = int(self.StartPos.value())
+        max_pos = int(self.EndPos.value())
+        pos_interval = int(self.RotationStep.value())
 
-        min_pos = self.StartPos.value()
-        max_pos = self.EndPos.value()
-        pos_interval = self.RotationStep.value()
-
+        pos_list = []
         for pos in range(min_pos, max_pos, pos_interval):
-            globals.rotation_mount_positions[device_id].append(int(pos))
+            pos_list.append(pos)
+        globals.rotation_mount_positions[self.device_id] = pos_list
 
 
     def TestBtn(self):
@@ -124,7 +129,7 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
     def AddTabs(self):
         for device_id in globals.thorlabs_device_list.keys():
             if device_id[:2] == "55":
-                new_rotation_mount = RotationMountWidget()
+                new_rotation_mount = RotationMountWidget(device_id)
                 self.tabs[device_id] = new_rotation_mount
                 self.RotationMountSelection.addTab(new_rotation_mount, f"{device_id}")
         return
@@ -227,7 +232,7 @@ class MainWindow(main_ui_class, main_baseclass):
 
         self.StartMeasBtn.setEnabled(False)
         self.StopMeasBtn.setEnabled(False)
-        self.SaveRefBtn.setEnabled(False)
+        self.SaveRefBtn.setEnabled(True)
         self.SaveDrkBtn.setEnabled(False)
         self.measurement_mode = self.SelectModeBox.currentText()
         self.newdata.connect(self.handleNewData)
@@ -248,7 +253,6 @@ class MainWindow(main_ui_class, main_baseclass):
 
     def closeEvent(self, event):
         tlab.disconnect_all()
-
         event.accept()
 
     @pyqtSlot()
@@ -260,7 +264,7 @@ class MainWindow(main_ui_class, main_baseclass):
 
     @pyqtSlot()
     def ChangePosition(self):
-        id = "55507804"
+        id = "55360064"
         pos_list = globals.rotation_mount_positions.get(id)
 
         if pos_list is None:
@@ -303,8 +307,11 @@ class MainWindow(main_ui_class, main_baseclass):
     @pyqtSlot()
     def ConnectThorlabsBtn_clicked(self):
         msg = tlab.connect_all()
-        self.rotation_mount_settings_window.AddTabs()
         QMessageBox.information(self, msg[0], msg[1])
+
+        if msg[0] != "Error":
+            self.rotation_mount_settings_window.AddTabs()
+
         return
 
     @pyqtSlot()
@@ -371,6 +378,8 @@ class MainWindow(main_ui_class, main_baseclass):
         :return:
         """
 
+        self.rotation_mount_settings_window.calculatePositionCombinations()
+
         if len(globals.mount_position_combinations) == 0:
             self.measureScope()
             reference_data = globals.spectraldata
@@ -384,11 +393,14 @@ class MainWindow(main_ui_class, main_baseclass):
         else:
             for pos_combination_id, pos_combination in globals.mount_position_combinations.items():
                 for mount_id, position in pos_combination.items():
-                    tlab.set_rotation_mount_pos(mount_id, position)
+                    print(position)
+                    tlab.set_rotation_mount_pos(mount_id, int(position))
 
-                self.measureScope()
+                #self.measureScope()
                 reference_data = globals.spectraldata
-                globals.referencedata[pos_combination_id] = reference_data
+                #globals.referencedata[pos_combination_id] = reference_data
+
+                saveToNewFile(f"reference_{pos_combination_id}", "ref", globals.wavelength, reference_data)
 
                 self.initPlot(globals.min_wavelength, globals.max_wavelength, None, "Wavelength (nm)", "Counts (#)")
                 self.plot(globals.wavelength, reference_data)
@@ -608,7 +620,7 @@ def pulseLED(wavelength,pulse):
     return
 
 
-def saveToNewFile(file_name, x, y):
+def saveToNewFile(file_name, folder, x, y):
     """
     Saves a list of values to a new file --> overwrites an existing file of the name. Mainly used for saving
     reference and dark spectra.
@@ -629,8 +641,13 @@ def saveToNewFile(file_name, x, y):
         fh = file_name
     """
 
+    complete_file_path = os.path.join(PROJECT_PATH, folder)
+
+    if not os.path.exists(f"{complete_file_path}"):
+        os.makedirs(f"{complete_file_path}")
+
     try:
-        with open(f"{file_name}.txt", "w") as fh:
+        with open(f"{complete_file_path}\\{file_name}.txt", "w") as fh:
             for n in range(len(y)):
                 fh.write(f"{x[n]:.1f}\t{y[n]}\n")
     except IndexError:

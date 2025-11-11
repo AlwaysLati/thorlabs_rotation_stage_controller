@@ -41,6 +41,7 @@ def connect_all():
 
                 # Ensure that the device settings have been initialized.
                 if not device.IsSettingsInitialized():
+                    print("mount")
                     device.WaitForSettingsInitialized(10000)  # 10 second timeout.
                     assert device.IsSettingsInitialized() is True
 
@@ -61,6 +62,7 @@ def connect_all():
 
                 # Ensure that the device settings have been initialized.
                 if not device.IsSettingsInitialized():
+                    print("solenoid")
                     device.WaitForSettingsInitialized(10000)  # 10 second timeout.
                     assert device.IsSettingsInitialized() is True
 
@@ -81,12 +83,17 @@ def connect_all():
 
     except Exception as e:
         print(e)
+        disconnect_all()
+        return ["Error", f"{e}"]
 
 
 def disconnect_all():
-    for device in globals.thorlabs_device_list:
+    for device_id, device in globals.thorlabs_device_list.items():
+        if device_id[:2] == "55":
+            device.StopImmediate()
         device.StopPolling()
         device.Disconnect()
+        time.sleep(0.25)
 
     return
 
