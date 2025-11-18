@@ -40,22 +40,25 @@ class MainWindow(main_ui_class, main_baseclass):
         self.actionAvasoft.triggered.connect(
             lambda checked: self.toggleWindow(self.ava_settings_window)
         )
+        self.actionAvasoft.setEnabled(False)
 
         self.rotation_mount_settings_window = windows.RotationMountSettingWindow()
         self.actionRotation_Mount.triggered.connect(
             lambda checked: self.toggleWindow(self.rotation_mount_settings_window)
         )
+        self.actionRotation_Mount.setEnabled(False)
 
         self.link_settings_window = windows.LinkSettingWindow()
         self.actionLinkam_RH95.triggered.connect(
             lambda checked: self.toggleWindow(self.link_settings_window)
         )
+        self.actionLinkam_RH95.setEnabled(False)
 
         # Initializing button states
         self.StartMeasBtn.setEnabled(False)
-        self.PauseMeasBtn.setEnabled(True)
+        self.PauseMeasBtn.setEnabled(False)
         self.StopMeasBtn.setEnabled(False)
-        self.SaveRefBtn.setEnabled(True)
+        self.SaveRefBtn.setEnabled(False)
         self.SaveDrkBtn.setEnabled(False)
         self.measurement_mode = self.SelectModeBox.currentText()
         self.newdata.connect(self.handleNewData)
@@ -145,6 +148,8 @@ class MainWindow(main_ui_class, main_baseclass):
         self.StartMeasBtn.setEnabled(True)
         self.SaveRefBtn.setEnabled(True)
         self.SaveDrkBtn.setEnabled(True)
+        self.connectAvasoft.setEnabled(False)
+        self.actionAvasoft.setEnabled(True)
         return
 
     @pyqtSlot()
@@ -157,7 +162,7 @@ class MainWindow(main_ui_class, main_baseclass):
         else:
             self.rotation_mount_settings_window.AddTabs()
             self.connectThorlabs.setEnabled(False)
-
+            self.actionRotation_Mount.setEnabled(True)
         return
 
     @pyqtSlot()
@@ -172,8 +177,12 @@ class MainWindow(main_ui_class, main_baseclass):
         self.StartMeasBtn.setEnabled(False)
         self.PauseMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(True)
+        self.SaveRefBtn.setEnabled(False)
+        self.SaveDrkBtn.setEnabled(False)
         self.SelectModeBox.setEnabled(False)
         self.menuBar.setEnabled(False)
+
+        globals.stopscanning = False
 
         if self.measurement_mode == "Scope":
 
@@ -185,21 +194,34 @@ class MainWindow(main_ui_class, main_baseclass):
                 self.plot(globals.wavelength, globals.spectraldata)
                 time.sleep(0.01)
 
-        elif self.measurement_mode == "Absorbance":
+        elif self.measurement_mode == "Absorbance" and len(globals.referencedata) > 0:
 
-            self.initPlot(globals.min_wavelength, globals.max_wavelength,None,"Wavelength (nm)","Absorbance")
+            self.initPlot(globals.min_wavelength, globals.max_wavelength,[0,3],"Wavelength (nm)","Absorbance")
             while True:
                 if globals.stopscanning:
                     break
 
-                abs_spectra = self.measureAbs()
+                abs_spectra = self.measureAbs("")
                 self.plot(globals.wavelength, abs_spectra)
                 time.sleep(0.01)
 
+        elif self.measurement_mode == "Transmittance" and len(globals.referencedata) > 0:
 
+            self.initPlot(globals.min_wavelength, globals.max_wavelength,[0,110],"Wavelength (nm)","Transmittance")
+            while True:
+                if globals.stopscanning:
+                    break
+
+                trans_spectra = self.measureTransmittance("")
+                self.plot(globals.wavelength, trans_spectra)
+                time.sleep(0.01)
+
+        ret = AVS_StopMeasure(globals.dev_handle)
         self.StartMeasBtn.setEnabled(True)
         self.PauseMeasBtn.setEnabled(False)
         self.StopMeasBtn.setEnabled(False)
+        self.SaveRefBtn.setEnabled(True)
+        self.SaveDrkBtn.setEnabled(True)
         self.SelectModeBox.setEnabled(True)
         self.menuBar.setEnabled(True)
         return
@@ -225,10 +247,12 @@ class MainWindow(main_ui_class, main_baseclass):
 
         :return:
         """
-        ret = AVS_StopMeasure(globals.dev_handle)
         globals.stopscanning = True
         self.measurement_paused = False
         self.StartMeasBtn.setEnabled(True)
+        self.PauseMeasBtn.setEnabled(False)
+        self.PauseMeasBtn.setText("Pause Measurement")
+        self.StartMeasBtn.setEnabled(False)
         self.repaint()
 
         return
@@ -240,11 +264,13 @@ class MainWindow(main_ui_class, main_baseclass):
 
         :return:
         """
+        ttl_on(globals.dev_handle)
+        QtTest.QTest.qWait(100)
 
         self.rotation_mount_settings_window.calculatePositionCombinations()
 
         if len(globals.mount_position_combinations) == 0:
-            #self.measureScope()
+            self.measureScope()
             reference_data = globals.spectraldata
             globals.referencedata[""] = reference_data
 
@@ -261,7 +287,7 @@ class MainWindow(main_ui_class, main_baseclass):
                     print(position)
                     tlab.set_rotation_mount_pos(mount_id, int(position))
 
-                #self.measureScope()
+                self.measureScope()
                 reference_data = globals.spectraldata
                 globals.referencedata[pos_combination_id] = reference_data
 
@@ -281,6 +307,9 @@ class MainWindow(main_ui_class, main_baseclass):
 
         :return:
         """
+        ttl_off(globals.dev_handle)
+        QtTest.QTest.qWait(100)
+
         self.measureScope()
         globals.darkdata = globals.spectraldata
 
@@ -330,7 +359,7 @@ class MainWindow(main_ui_class, main_baseclass):
         dataready = False
         while (dataready == False):
             dataready = (AVS_PollScan(globals.dev_handle) == True)
-            time.sleep(0.001)
+            QtTest.QTest.qWait(1)
 
         self.newdata.emit() # Retrieves and saves the measurement to global variables
         self.repaint()
@@ -356,6 +385,24 @@ class MainWindow(main_ui_class, main_baseclass):
             abs_spectra = [0.0] * len(globals.spectraldata)
             # abs = [0 for _ in range(len(globals.spectraldata))]
         return abs_spectra
+
+    @pyqtSlot()
+    def measureTransmittance(self, ref_id):
+        """
+        Calculates a sample's transmittance spectrum by comparing its scope to previously saved reference and dark files.
+
+        :return:
+        """
+        ref = globals.referencedata.get(ref_id)
+        self.measureScope()
+
+        # Absorbance formula from Avasoft 8 documentation
+        try:
+            trans_spectra = [100 * ((s - d ) / (r - d)) for r, s, d in zip(ref, globals.spectraldata, globals.darkdata)]
+        except (ValueError, ZeroDivisionError):  # Catches any errors and returns a list full of zeros
+            trans_spectra = [100.0] * len(globals.spectraldata)
+            # abs = [0 for _ in range(len(globals.spectraldata))]
+        return trans_spectra
 
     @pyqtSlot()
     def handleNewData(self):
@@ -393,6 +440,8 @@ class MainWindow(main_ui_class, main_baseclass):
         :param y_label: str,
         :return:
         """
+        self.graph.clear()
+
         pen = pg.mkPen(color=(0,0,0), width=1.1, style=Qt.SolidLine)
         self.graph.setLabel("left", f"{y_label}")
         self.graph.setLabel("bottom", f"{x_label}")
