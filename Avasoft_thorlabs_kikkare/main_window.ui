@@ -18,13 +18,27 @@
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>370</y>
+      <y>320</y>
       <width>141</width>
       <height>23</height>
      </rect>
     </property>
+    <property name="acceptDrops">
+     <bool>false</bool>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton:disabled {
+	color: rgb(0, 0, 0);
+	background-color: rgb(0, 85, 0);
+}
+
+QPushButton:enabled {
+	color: rgb(0, 0, 0);
+	background-color: rgb(0, 255, 0);
+}</string>
+    </property>
     <property name="text">
-     <string>Start Measurements</string>
+     <string>Start Measurement</string>
     </property>
    </widget>
    <widget class="QPushButton" name="StopMeasBtn">
@@ -36,8 +50,19 @@
       <height>23</height>
      </rect>
     </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton:disabled {
+	color: rgb(0, 0, 0);
+	background-color: rgb(85, 0, 0);
+}
+
+QPushButton:enabled {
+	color: rgb(0, 0, 0);
+	background-color: rgb(255, 0, 0);
+}</string>
+    </property>
     <property name="text">
-     <string>Stop Measurements</string>
+     <string>Stop Measurement</string>
     </property>
    </widget>
    <widget class="QPushButton" name="SaveRefBtn">
@@ -85,11 +110,6 @@
       <string>Absorbance</string>
      </property>
     </item>
-    <item>
-     <property name="text">
-      <string>Timeseries</string>
-     </property>
-    </item>
    </widget>
    <widget class="PlotWidget" name="graph" native="true">
     <property name="geometry">
@@ -127,6 +147,33 @@
      <string>Test Shutter</string>
     </property>
    </widget>
+   <widget class="QPushButton" name="PauseMeasBtn">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>360</y>
+      <width>141</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="acceptDrops">
+     <bool>false</bool>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton:disabled {
+	color: rgb(0, 0, 0);
+	background-color: rgb(170, 170, 0);
+}
+
+QPushButton:enabled {
+	color: rgb(0, 0, 0);
+	background-color: rgb(255, 255, 0);
+}</string>
+    </property>
+    <property name="text">
+     <string>Pause Measurement</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
@@ -150,7 +197,6 @@
     <addaction name="actionAvasoft"/>
     <addaction name="actionRotation_Mount"/>
     <addaction name="actionLinkam_RH95"/>
-    <addaction name="actionCoolLED"/>
    </widget>
    <widget class="QMenu" name="menuConnect">
     <property name="title">
@@ -170,11 +216,6 @@
   <action name="actionLinkam_RH95">
    <property name="text">
     <string>Linkam RH95</string>
-   </property>
-  </action>
-  <action name="actionCoolLED">
-   <property name="text">
-    <string>CoolLED</string>
    </property>
   </action>
   <action name="connectAvasoft">

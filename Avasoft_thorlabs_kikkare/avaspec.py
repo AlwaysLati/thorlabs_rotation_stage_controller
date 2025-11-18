@@ -6,7 +6,7 @@ import struct
 from PyQt5.QtCore import *
 from enum import Enum
 
-PATH = str(os.environ["AVASPEC_PATH"])
+AVAPATH = str(os.environ["AVASPEC_PATH"])
 
 if 'linux' in sys.platform: # Linux will have 'linux' or 'linux2'
     lib = ctypes.CDLL("/usr/local/lib/libavs.so.0")
@@ -20,7 +20,7 @@ else: # Windows will have 'win32' or 'cygwin'
         WM_MEAS_READY = 0x8001
         # Entire path needs to be specified for the avaspecx64.dll file, otherwise the program won't work.
         # This is an unresolved problem with WinDLL
-        lib = ctypes.WinDLL(f"{PATH}\\avaspecx64.dll")
+        lib = ctypes.WinDLL(f"{AVAPATH}\\avaspecx64.dll")
         func = ctypes.WINFUNCTYPE
     else:
         WM_MEAS_READY = 0x0401
