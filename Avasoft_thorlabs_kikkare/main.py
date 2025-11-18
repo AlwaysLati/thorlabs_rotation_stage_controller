@@ -272,13 +272,21 @@ class MainWindow(main_ui_class, main_baseclass):
 
         :return:
         """
-        ttl_on(globals.dev_handle)
-        QtTest.QTest.qWait(100)
 
         self.rotation_mount_settings_window.calculatePositionCombinations()
 
+        self.initPlot(globals.min_wavelength, globals.max_wavelength, None, "Wavelength (nm)", "Counts (#)")
+
         if len(globals.mount_position_combinations) == 0:
+
+            ttl_on(globals.dev_handle)
+            QtTest.QTest.qWait(100)
+
             self.measureScope()
+
+            ttl_off(globals.dev_handle)
+            QtTest.QTest.qWait(100)
+
             reference_data = globals.spectraldata
             globals.referencedata[""] = reference_data
 
@@ -295,14 +303,21 @@ class MainWindow(main_ui_class, main_baseclass):
                     print(position)
                     tlab.set_rotation_mount_pos(mount_id, int(position))
 
+                ttl_on(globals.dev_handle)
+                QtTest.QTest.qWait(100)
+
                 self.measureScope()
+
+                ttl_off(globals.dev_handle)
+                QtTest.QTest.qWait(100)
+
                 reference_data = globals.spectraldata
                 globals.referencedata[pos_combination_id] = reference_data
 
                 saveToNewFile(f"reference_{pos_combination_id}", "ref", globals.wavelength, reference_data)
 
-                self.initPlot(globals.min_wavelength, globals.max_wavelength, None, "Wavelength (nm)", "Counts (#)")
                 self.plot(globals.wavelength, reference_data)
+                self.repaint()
 
                 time.sleep(0.001)
 
