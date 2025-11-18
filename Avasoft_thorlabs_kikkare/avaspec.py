@@ -549,17 +549,31 @@ def AVS_SetParameter(handle, deviceconfig):
     
 def AVS_SetSyncMode(handle, enable):
     """
-    Disables/Enables support for synchronous measurement. Library takes care of 
+    Disables/Enables support for synchronous measurement. Library takes care of
     dividing Nmsr request into Nmsr number of single measurement requests.
-    
-    See AvaSpec Library Manual section 3.4.8 for more information on running 
+
+    See AvaSpec Library Manual section 3.4.8 for more information on running
     multiple spectrometers synchronized.
-    
+
     :param handle: AvsHandle of the master device spectrometer.
-    :param enable: Boolean, 0 disables sync mode, 1 enables sync mode 
+    :param enable: Boolean, 0 disables sync mode, 1 enables sync mode
     """
     prototype = func(ctypes.c_int, ctypes.c_int, ctypes.c_bool)
     paramflags = (1, "handle",), (1, "enable",),
     AVS_SetSyncMode = prototype(("AVS_SetSyncMode", lib), paramflags)
     ret = AVS_SetSyncMode(handle, enable)
+    return ret
+
+def ttl_on(handle, port=3):
+    """Set TTL output HIGH (light on)."""
+    ret = AVS_SetDigOut(handle, port, 1)
+    if ret < 0:
+        raise RuntimeError(f"AVS_SetDigOut returned {ret}")
+    return ret
+
+def ttl_off(handle, port=3):
+    """Set TTL output LOW (light off)."""
+    ret = AVS_SetDigOut(handle, port, 0)
+    if ret < 0:
+        raise RuntimeError(f"AVS_SetDigOut returned {ret}")
     return ret
