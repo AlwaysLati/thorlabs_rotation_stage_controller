@@ -192,18 +192,24 @@ class MainWindow(main_ui_class, main_baseclass):
 
         globals.stopscanning = False
 
-        ttl_on(globals.dev_handle)
-        QtTest.QTest.qWait(100)
-
         if self.measurement_mode == "Scope":
 
             self.initPlot(globals.min_wavelength, globals.max_wavelength, None, "Wavelength (nm)", "Counts (#)")
+
+            ttl_on(globals.dev_handle)
+            QtTest.QTest.qWait(100)
+
             while True:
                 if globals.stopscanning:
                     break
                 self.measureScope()
                 self.plot(globals.wavelength, globals.spectraldata)
                 time.sleep(0.01)
+
+            ttl_off(globals.dev_handle)
+            QtTest.QTest.qWait(100)
+
+            ret = AVS_StopMeasure(globals.dev_handle)
 
         elif len(globals.referencedata) > 0:
             wl_range = [0, 0]
@@ -247,6 +253,8 @@ class MainWindow(main_ui_class, main_baseclass):
                     ttl_off(globals.dev_handle)
                     QtTest.QTest.qWait(100)
 
+                    ret = AVS_StopMeasure(globals.dev_handle)
+
                     saveToNewFile(f"{self.file_name_to_save}_{cumulative_time}s_{pos_combination_id}",
                                   f"Results_{y_label}", globals.wavelength, output_spectra)
 
@@ -255,11 +263,6 @@ class MainWindow(main_ui_class, main_baseclass):
                     time.sleep(0.01)
 
             self.StopMeasBtn_clicked()
-
-        ret = AVS_StopMeasure(globals.dev_handle)
-
-        ttl_off(globals.dev_handle)
-        QtTest.QTest.qWait(100)
 
         self.StartMeasBtn.setEnabled(True)
         self.PauseMeasBtn.setEnabled(False)
