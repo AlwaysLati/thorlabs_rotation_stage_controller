@@ -17,6 +17,7 @@ import math
 from statistics import *
 from itertools import product
 from collections import defaultdict
+from timeit import default_timer as timer
 
 from avaspec import *
 import thorlab_device_control as tlab
@@ -73,6 +74,7 @@ class MainWindow(main_ui_class, main_baseclass):
         self.SelectModeBox.currentTextChanged.connect(self.Mode_changed)
         self.connectAvasoft.triggered.connect(self.OpenCommBtn_clicked)
         self.connectThorlabs.triggered.connect(self.ConnectThorlabsBtn_clicked)
+        self.fileNameEdit.textChanged.connect(self.saveFile_changed)
 
         self.testRotBtn.clicked.connect(self.ChangePosition)
         self.testShutterBtn.clicked.connect(self.ToggleShutter)
@@ -82,6 +84,11 @@ class MainWindow(main_ui_class, main_baseclass):
         self.initPlot(None, None, None, "", "")
 
         self.measurement_paused = False
+
+        self.file_name_to_save = ""
+        self.open_shutter_for = 0
+        self.timer_start = 0
+        self.timer_end = 0
 
     def closeEvent(self, event):
         """
@@ -198,27 +205,56 @@ class MainWindow(main_ui_class, main_baseclass):
                 self.plot(globals.wavelength, globals.spectraldata)
                 time.sleep(0.01)
 
-        elif self.measurement_mode == "Absorbance" and len(globals.referencedata) > 0:
+        elif len(globals.referencedata) > 0:
+            wl_range = [0, 0]
+            y_label = ""
+            measurement_func = self.measureAbs
 
-            self.initPlot(globals.min_wavelength, globals.max_wavelength,[0,3],"Wavelength (nm)","Absorbance")
-            while True:
-                if globals.stopscanning:
-                    break
+            if self.measurement_mode == "Absorbance":
+                wl_range = [0, 3]
+                y_label = "Absorbance"
+                measurement_func = self.measureAbs
 
-                abs_spectra = self.measureAbs("")
-                self.plot(globals.wavelength, abs_spectra)
-                time.sleep(0.01)
+            elif self.measurement_mode == "Transmittance":
+                wl_range = [0, 110]
+                y_label = "Transmittance"
+                measurement_func = self.measureTransmittance
 
-        elif self.measurement_mode == "Transmittance" and len(globals.referencedata) > 0:
+            self.initPlot(globals.min_wavelength, globals.max_wavelength, wl_range, "Wavelength (nm)", y_label)
 
-            self.initPlot(globals.min_wavelength, globals.max_wavelength,[0,110],"Wavelength (nm)","Transmittance")
-            while True:
-                if globals.stopscanning:
-                    break
+            globals.solenoid_open_timers = readShutterTimers()
 
-                trans_spectra = self.measureTransmittance("")
-                self.plot(globals.wavelength, trans_spectra)
-                time.sleep(0.01)
+            cumulative_time = 0
+
+            for open_timer in globals.solenoid_open_timers:
+                for mount_id, pos in globals.mount_default_angles.items():
+                    tlab.set_rotation_mount_pos(mount_id, pos)
+
+                tlab.open_shutter("68250034")
+                QtTest.QTest.qWait(open_timer * 1000)
+                cumulative_time += open_timer
+                tlab.close_shutter("68250034")
+
+                for pos_combination_id, pos_combination in globals.mount_position_combinations.items():
+                    for mount_id, position in pos_combination.items():
+                        tlab.set_rotation_mount_pos(mount_id, int(position))
+
+                    ttl_on(globals.dev_handle)
+                    QtTest.QTest.qWait(100)
+
+                    output_spectra = measurement_func(globals.referencedata[pos_combination_id])
+
+                    ttl_off(globals.dev_handle)
+                    QtTest.QTest.qWait(100)
+
+                    saveToNewFile(f"{self.file_name_to_save}_{cumulative_time}s_{pos_combination_id}",
+                                  f"Results_{y_label}", globals.wavelength, output_spectra)
+
+                    self.plot(globals.wavelength, output_spectra)
+                    self.repaint()
+                    time.sleep(0.01)
+
+            self.StopMeasBtn_clicked()
 
         ret = AVS_StopMeasure(globals.dev_handle)
 
@@ -240,10 +276,14 @@ class MainWindow(main_ui_class, main_baseclass):
             self.measurement_paused = False
             self.PauseMeasBtn.setText("Pause Measurement")
 
+
         else:
             self.measurement_paused = True
             self.StartMeasBtn.setEnabled(False)
             self.PauseMeasBtn.setText("Continue Measurement")
+
+            self.open_shutter_for = timer() - self.timer_start
+            tlab.close_shutter("68250034")
 
             while self.measurement_paused:
                 QtTest.QTest.qWait(100)
@@ -300,7 +340,6 @@ class MainWindow(main_ui_class, main_baseclass):
         else:
             for pos_combination_id, pos_combination in globals.mount_position_combinations.items():
                 for mount_id, position in pos_combination.items():
-                    print(position)
                     tlab.set_rotation_mount_pos(mount_id, int(position))
 
                 ttl_on(globals.dev_handle)
@@ -483,6 +522,9 @@ class MainWindow(main_ui_class, main_baseclass):
     @pyqtSlot()
     def updatePlotRange(self,min_x,max_x):
         self.graph.setXRange(min_x,max_x)
+
+    def saveFile_changed(self):
+        self.file_name_to_save = self.fileNameEdit.currentText()
 
 
 

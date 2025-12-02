@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>252</width>
-    <height>196</height>
+    <height>302</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,11 +19,11 @@
      <x>20</x>
      <y>20</y>
      <width>211</width>
-     <height>151</height>
+     <height>261</height>
     </rect>
    </property>
    <property name="title">
-    <string>Manual Rotation Mount Steps</string>
+    <string>Rotation Mount Settings</string>
    </property>
    <widget class="QLabel" name="label_3">
     <property name="geometry">
@@ -51,7 +51,7 @@
      <string>   -</string>
     </property>
    </widget>
-   <widget class="QDoubleSpinBox" name="EndPos">
+   <widget class="QSpinBox" name="EndPos">
     <property name="geometry">
      <rect>
       <x>110</x>
@@ -60,17 +60,14 @@
       <height>24</height>
      </rect>
     </property>
-    <property name="decimals">
-     <number>1</number>
-    </property>
     <property name="maximum">
-     <double>360.000000000000000</double>
+     <number>360</number>
     </property>
     <property name="value">
-     <double>360.000000000000000</double>
+     <number>360</number>
     </property>
    </widget>
-   <widget class="QDoubleSpinBox" name="StartPos">
+   <widget class="QSpinBox" name="StartPos">
     <property name="geometry">
      <rect>
       <x>20</x>
@@ -79,14 +76,8 @@
       <height>24</height>
      </rect>
     </property>
-    <property name="decimals">
-     <number>1</number>
-    </property>
     <property name="maximum">
-     <double>360.000000000000000</double>
-    </property>
-    <property name="value">
-     <double>0.000000000000000</double>
+     <number>360</number>
     </property>
    </widget>
    <widget class="QLabel" name="label_5">
@@ -102,7 +93,7 @@
      <string>Rotation Step</string>
     </property>
    </widget>
-   <widget class="QDoubleSpinBox" name="RotationStep">
+   <widget class="QSpinBox" name="RotationStep">
     <property name="geometry">
      <rect>
       <x>20</x>
@@ -111,14 +102,53 @@
       <height>24</height>
      </rect>
     </property>
-    <property name="decimals">
-     <number>1</number>
-    </property>
     <property name="maximum">
-     <double>360.000000000000000</double>
+     <number>360</number>
     </property>
     <property name="value">
-     <double>10.000000000000000</double>
+     <number>90</number>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="HomeDevBtn">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>220</y>
+      <width>91</width>
+      <height>24</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Home Device</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_6">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>150</y>
+      <width>141</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Default Position</string>
+    </property>
+   </widget>
+   <widget class="QSpinBox" name="DefaultAngle">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>170</y>
+      <width>71</width>
+      <height>24</height>
+     </rect>
+    </property>
+    <property name="maximum">
+     <number>360</number>
+    </property>
+    <property name="value">
+     <number>0</number>
     </property>
    </widget>
   </widget>

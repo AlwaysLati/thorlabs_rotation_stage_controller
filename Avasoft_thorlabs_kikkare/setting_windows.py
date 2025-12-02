@@ -6,6 +6,7 @@ from itertools import product
 
 from avaspec import *
 import globals
+from thorlab_device_control import *
 
 ava_ui_class, ava_baseclass = pg.Qt.loadUiType("ava_settings_window.ui")
 class AvaSettingWindow(ava_ui_class, ava_baseclass):
@@ -76,7 +77,8 @@ class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_bas
         self.StartPos.valueChanged.connect(self.PosParams_changed)
         self.EndPos.valueChanged.connect(self.PosParams_changed)
         self.RotationStep.valueChanged.connect(self.PosParams_changed)
-        #self.saveBtn.clicked.connect(self.TestBtn)
+        self.DefaultAngle.valueChanged.connect(self.defaultAngle_changed)
+        self.HomeDevBtn.clicked.connect(self.homeDevice)
 
         self.device_id = device_id
 
@@ -92,9 +94,12 @@ class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_bas
             pos_list.append(pos)
         globals.rotation_mount_positions[self.device_id] = pos_list
 
+    def defaultAngle_changed(self):
+        new_angle = int(self.DefaultAngle.value())
+        globals.mount_default_angles[self.device_id] = new_angle
 
-    def TestBtn(self):
-        pass
+    def homeDevice(self):
+        home_rotation_mount(self.device_id)
 
 
 rotation_mount_ui_class, rotation_mount_baseclass = pg.Qt.loadUiType("rotation_mount_settings_window.ui")
@@ -104,8 +109,6 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
         self.setupUi(self)
 
         self.setWindowTitle("Thorlabs Rotation Mount Settings")
-
-        #self.SavePositionListBtn.clicked.connect(self.savePositions)
 
         self.tabs = dict()
 

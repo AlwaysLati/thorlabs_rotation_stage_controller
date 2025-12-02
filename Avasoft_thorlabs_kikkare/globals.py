@@ -28,6 +28,7 @@ integral_multiplier = 0
 thorlabs_device_list = dict()   # "device_id" : Device
 rotation_mount_positions = defaultdict(list)   # "device_id" : [position]
 mount_position_combinations = defaultdict(dict)
+mount_default_angles = dict()
 
 solenoid_open_timers = list()
 
