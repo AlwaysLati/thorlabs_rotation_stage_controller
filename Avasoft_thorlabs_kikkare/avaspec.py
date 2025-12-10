@@ -3,7 +3,6 @@ import os
 import inspect
 import ctypes
 import struct
-from PyQt5.QtCore import *
 from enum import Enum
 
 AVAPATH = str(os.environ["AVASPEC_PATH"])

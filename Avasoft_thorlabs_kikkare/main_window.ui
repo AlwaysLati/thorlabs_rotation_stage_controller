@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>679</width>
-    <height>456</height>
+    <height>470</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -82,7 +82,7 @@ QPushButton:enabled {
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>50</y>
+      <y>60</y>
       <width>75</width>
       <height>23</height>
      </rect>
@@ -94,10 +94,10 @@ QPushButton:enabled {
    <widget class="QComboBox" name="SelectModeBox">
     <property name="geometry">
      <rect>
-      <x>190</x>
-      <y>400</y>
-      <width>91</width>
-      <height>22</height>
+      <x>20</x>
+      <y>190</y>
+      <width>121</width>
+      <height>21</height>
      </rect>
     </property>
     <item>
@@ -129,9 +129,9 @@ QPushButton:enabled {
    <widget class="QPushButton" name="testRotBtn">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>240</y>
-      <width>101</width>
+      <x>10</x>
+      <y>250</y>
+      <width>81</width>
       <height>24</height>
      </rect>
     </property>
@@ -142,9 +142,9 @@ QPushButton:enabled {
    <widget class="QPushButton" name="testShutterBtn">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>270</y>
-      <width>101</width>
+      <x>100</x>
+      <y>250</y>
+      <width>81</width>
       <height>24</height>
      </rect>
     </property>
@@ -182,9 +182,9 @@ QPushButton:enabled {
    <widget class="QLineEdit" name="fileNameEdit">
     <property name="geometry">
      <rect>
-      <x>360</x>
+      <x>260</x>
       <y>400</y>
-      <width>281</width>
+      <width>391</width>
       <height>24</height>
      </rect>
     </property>
@@ -192,7 +192,7 @@ QPushButton:enabled {
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>290</x>
+      <x>190</x>
       <y>400</y>
       <width>61</width>
       <height>16</height>
@@ -200,6 +200,96 @@ QPushButton:enabled {
     </property>
     <property name="text">
      <string>File Name:</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="SelectTypeBox">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>130</y>
+      <width>121</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>Single</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Continuous</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Series</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>110</y>
+      <width>111</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Measurement Type</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_3">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>170</y>
+      <width>121</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Measurement Mode</string>
+    </property>
+   </widget>
+   <widget class="Line" name="line">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>290</y>
+      <width>171</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Orientation::Horizontal</enum>
+    </property>
+   </widget>
+   <widget class="Line" name="line_2">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>220</y>
+      <width>171</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Orientation::Horizontal</enum>
+    </property>
+   </widget>
+   <widget class="Line" name="line_3">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>90</y>
+      <width>171</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Orientation::Horizontal</enum>
     </property>
    </widget>
   </widget>
@@ -224,7 +314,6 @@ QPushButton:enabled {
     </property>
     <addaction name="actionAvasoft"/>
     <addaction name="actionRotation_Mount"/>
-    <addaction name="actionLinkam_RH95"/>
    </widget>
    <widget class="QMenu" name="menuConnect">
     <property name="title">
@@ -239,11 +328,6 @@ QPushButton:enabled {
   <action name="actionAvasoft">
    <property name="text">
     <string>Avasoft</string>
-   </property>
-  </action>
-  <action name="actionLinkam_RH95">
-   <property name="text">
-    <string>Linkam RH95</string>
    </property>
   </action>
   <action name="connectAvasoft">
