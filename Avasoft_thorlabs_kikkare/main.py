@@ -971,6 +971,8 @@ def read_shutter_timers():
         return []
 
 
+# ---------------------- MAIN ---------------------- #
+
 def main():
     # Initializing the PyQt application window
     app = QApplication(sys.argv)
