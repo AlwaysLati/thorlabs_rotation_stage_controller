@@ -1,4 +1,5 @@
 # ---------------- Standard library imports ----------------
+# Importing built-in Python modules used throughout the program
 import os
 import sys
 import time
@@ -7,27 +8,34 @@ from itertools import product
 from collections import defaultdict
 
 # ---------------- Third-party imports ----------------
+# External libraries required for GUI, plotting, and environment handling
 from dotenv import load_dotenv
 from PyQt6 import uic, QtTest
-from PyQt6.QtCore import QThread, QWaitCondition, QMutex, pyqtSignal, pyqtSlot, Qt
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtCore import *
+from PyQt6.QtWidgets import *
 import pyqtgraph as pg
 
 # ---------------- .NET / Thorlabs imports ----------------
+# "clr" enables interaction with .NET assemblies (required for Thorlabs devices)
 import clr
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
-PROJECT_PATH = os.environ["PROJECT_PATH"]
-TLABPATH = os.environ["THORLABS_PATH"]
+PROJECT_PATH = os.environ.get("PROJECT_PATH")
+if not PROJECT_PATH:
+    raise RuntimeError("PROJECT_PATH not set in environment or .env")
 
-# Add references to required DLLs
+TLABPATH = os.environ.get("THORLABS_PATH")
+if not TLABPATH:
+    raise RuntimeError("THORLABS_PATH not set in environment or .env")
+
+# Add references to .NET DLLs for Thorlabs device communication
 clr.AddReference(f"{TLABPATH}\\Thorlabs.MotionControl.DeviceManagerCLI.dll")
 clr.AddReference(f"{TLABPATH}\\Thorlabs.MotionControl.GenericMotorCLI.dll")
 clr.AddReference(f"{TLABPATH}\\Thorlabs.MotionControl.IntegratedStepperMotorsCLI.dll")
 clr.AddReference(f"{TLABPATH}\\Thorlabs.MotionControl.KCube.SolenoidCLI.dll")
 
-# Import only required classes/functions from DLLs
+# Importing .NET classes relating to motion and device control
 from Thorlabs.MotionControl.DeviceManagerCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
 from Thorlabs.MotionControl.IntegratedStepperMotorsCLI import *
@@ -35,8 +43,7 @@ from Thorlabs.MotionControl.KCube.SolenoidCLI import *
 from System import Decimal
 
 # ---------------- Local module imports ----------------
-
-# Avaspec: only import what's used in AvaspecController
+# Importing Avaspec spectrometer control functions from the local avaspec module
 from avaspec import (
     AVS_Init, AVS_GetNrOfDevices, AVS_GetList, AVS_Activate,
     AVS_GetParameter, AVS_GetLambda, AVS_UseHighResAdc,
@@ -45,21 +52,30 @@ from avaspec import (
     AvsIdentityType, DeviceConfigType, MeasConfigType
 )
 
+# ---------------- Global constants --------------------
+MOUNT_PREFIX = "55"
+SOLENOID_PREFIX = "68"
+MOUNT_ID_1 = "55360064"
+MOUNT_ID_2 = ""
+SOLENOID_ID = "68250034"
 
 # ----------------- DEVICE CONTROLLERS ----------------- #
 
 class AvaspecController:
+    """Controls the Avaspec spectrometer device."""
+
     def __init__(self):
-        """ Avaspec Data """
+        """Initialize default configuration and data buffers."""
+        # Spectrometer handle and data buffers
         self.dev_handle = 0
         self.pixels = 4096
         self.wavelength_full = [0.0] * 4096
         self.wavelength = [0.0] * 4096
         self.spectraldata = [0.0] * 4096
         self.darkdata = [0.0] * 4096
-        self.referencedata = dict()
+        self.referencedata = dict()  # Stores reference spectra by ID
 
-        """ Avaspec  Parameters """
+        # Measurement parameters
         self.int_time = 5
         self.avg_num = 1
         self.min_wavelength = 300
@@ -69,49 +85,54 @@ class AvaspecController:
 
     def connect_device(self):
         """
-        Modified method from Avasoft PyQt5 demo. Attempts to connect to an Avaspec spectrometer.
-
-        :return: int, Device serial number
+        Connects to the first available Avaspec spectrometer.
+        Returns the serial number if successful, 0 otherwise.
         """
-        ret = AVS_Init(0)
-        ret = AVS_GetNrOfDevices()
-        mylist = AvsIdentityType()
-        mylist = AVS_GetList(1)
+        ret = AVS_Init(0)  # Initialize USB communication
+        ret = AVS_GetNrOfDevices()  # Count available devices
+        mylist = AVS_GetList(1)  # Get device list (first device only)
 
+        # Attempt to read device serial number
         try:
             serial_number = str(mylist[0].SerialNumber.decode("utf-8"))
         except IndexError:
-            return 0
+            return 0  # No device found
 
+        # Activate device and retrieve wavelength/pixel info
         self.dev_handle = AVS_Activate(mylist[0])
         devcon = DeviceConfigType()
         devcon = AVS_GetParameter(self.dev_handle, 63484)
-        self.pixels = devcon.m_Detector_m_NrPixels
+        self.pixels = devcon.m_Detector_m_NrPixels   # Set actual number of pixels
+
+        # Retrieve full wavelength calibration
         self.wavelength_full = AVS_GetLambda(self.dev_handle)
 
         return serial_number
 
     def save_reference(self, combo_id=""):
-        self.ttl_on()
-        time.sleep(0.001)
+        """Captures a reference spectrum and saves it."""
+        self.ttl_on()  # Turn illumination on
+        time.sleep(0.1)
 
-        self.measure_scope()
+        self.measure_scope()  # Perform measurement
 
         self.ttl_off()
-        time.sleep(0.001)
+        time.sleep(0.1)
 
         reference_data = self.spectraldata
-        self.referencedata[combo_id] = reference_data
+        self.referencedata[combo_id] = reference_data  # Store reference
 
+        # Save to file
         save_to_new_file(f"reference_{combo_id}", "ref", self.wavelength, reference_data)
 
         return self.wavelength, reference_data
 
     def save_dark(self):
+        """Captures and saves dark current measurement."""
         self.ttl_off()
-        time.sleep(0.001)
+        QtTest.QTest.qWait(100)
 
-        self.measure_scope()
+        self.measure_scope()  # Capture dark data
         self.darkdata = self.spectraldata
 
         save_to_new_file(f"reference_dark", "ref", self.wavelength, self.darkdata)
@@ -119,7 +140,14 @@ class AvaspecController:
         return self.wavelength, self.darkdata
 
     def measure_scope(self, ref_id=""):
+        """
+        Performs a single scope measurement (raw spectral intensity).
+        """
+
+        # Enable high-resolution ADC
         ret = AVS_UseHighResAdc(self.dev_handle, True)
+
+        # Configure measurement parameters
         measconfig = MeasConfigType()
         measconfig.m_StartPixel = 0
         measconfig.m_StopPixel = self.pixels - 1
@@ -139,18 +167,25 @@ class AvaspecController:
         measconfig.m_Control_m_LaserWidth = 0
         measconfig.m_Control_m_LaserWaveLength = 785.0
         measconfig.m_Control_m_StoreToRam = 0
+
+        # Prepare spectrometer for measurement
         ret = AVS_PrepareMeasure(self.dev_handle, measconfig)
         nummeas = 1  # Performs only a single measurement
 
+        # Trigger measurement
         ret = AVS_Measure(self.dev_handle, 0, nummeas)
         dataready = False
+
+        # Poll device until data is ready
         while not dataready:
-            dataready = (AVS_PollScan(self.dev_handle) == True)
+            dataready = AVS_PollScan(self.dev_handle)
             time.sleep(0.001)
 
+        # Retrieve spectrum
         timestamp, data = AVS_GetScopeData(self.dev_handle)
         AVS_StopMeasure(self.dev_handle)
 
+        # Filter spectrum to desired wavelength range
         self.spectraldata = [d for wl, d in zip(self.wavelength_full, data)
                              if self.min_wavelength < wl < self.max_wavelength]
         self.wavelength = [wl for wl in self.wavelength_full
@@ -159,7 +194,14 @@ class AvaspecController:
         return self.wavelength, self.spectraldata
 
     def measure_absorbance(self, ref_id=""):
+        """
+        Computes absorbance spectrum using:
+            A = -log10( (Sample - Dark) / (Reference - Dark) )
+        """
         ref = self.referencedata.get(ref_id)
+        if ref is None:
+            return
+
         self.measure_scope()
 
         # Absorbance formula from Avasoft 8 documentation
@@ -172,7 +214,14 @@ class AvaspecController:
         return self.wavelength, abs_spectra
 
     def measure_transmittance(self, ref_id=""):
+        """
+        Computes transmittance spectrum using:
+            T (%) = 100 * (Sample - Dark) / (Reference - Dark)
+        """
         ref = self.referencedata.get(ref_id)
+        if ref is None:
+            return
+
         self.measure_scope()
 
         # Absorbance formula from Avasoft 8 documentation
@@ -184,20 +233,21 @@ class AvaspecController:
         return self.wavelength, trans_spectra
 
     def ttl_on(self):
-        """Set TTL output HIGH (light on)."""
+        """Sets digital output high to activate illumination."""
         ret = AVS_SetDigOut(self.dev_handle, 3, 1)
         if ret < 0:
             raise RuntimeError(f"AVS_SetDigOut returned {ret}")
         return ret
 
     def ttl_off(self):
-        """Set TTL output LOW (light off)."""
+        """Sets digital output low to disable illumination."""
         ret = AVS_SetDigOut(self.dev_handle, 3, 0)
         if ret < 0:
             raise RuntimeError(f"AVS_SetDigOut returned {ret}")
         return ret
 
     def update_params(self, new_params):
+        """Updates integration time, averaging number, and wavelength limits."""
         if len(new_params) != 4:
             return
 
@@ -208,17 +258,21 @@ class AvaspecController:
 
 
 class ThorlabsController:
+    """Handles connection and control of Thorlabs rotation mounts and solenoids."""
+
     def __init__(self):
-        """ Thorlabs Devices"""
-        self.device_list = dict()  # "device_id" : Device
+        """Initialize device states and parameter storage."""
+        self.device_list = dict()  # Maps serial numbers to device objects
         self.rotation_mount_positions = defaultdict(list)  # "device_id" : [position]
-        self.mount_position_combos = defaultdict(dict)
+        self.mount_position_combos = defaultdict(dict)  # "combo_id" : dict("device_id" : [position])
         self.mount_default_angles = dict()
         self.solenoid_open_timers = list()
 
     def connect_devices(self):
-        """Attempts to connect to all Thorlabs devices"""
-
+        """
+        Connects to all Thorlabs devices and categorizes them by type.
+        Returns status message.
+        """
         try:
             # Initialize device list.
             DeviceManagerCLI.BuildDeviceList()
@@ -230,10 +284,10 @@ class ThorlabsController:
             for serial_no in serial_numbers:
                 device_type = serial_no[:2]
 
-                if device_type == "55":  # Integrated stepper driven rotation stage
+                if device_type == MOUNT_PREFIX:  # Integrated stepper driven rotation stage
                     self.connect_mount(serial_no)
 
-                elif device_type == "68":  # K-Cube solenoid Driver
+                elif device_type == SOLENOID_PREFIX:  # K-Cube solenoid Driver
                     self.connect_solenoid(serial_no)
 
                 else:
@@ -247,30 +301,33 @@ class ThorlabsController:
             return ["Error", f"{e}"]
 
     def connect_mount(self, serial_no):
+        """Initializes and configures a Thorlabs rotation mount."""
         device = CageRotator.CreateCageRotator(serial_no)
         device.Connect(serial_no)
 
-        # Ensure that the device settings have been initialized.
+        # Ensure settings loaded
         if not device.IsSettingsInitialized():
             print("mount")
             device.WaitForSettingsInitialized(10000)  # 10 second timeout.
             assert device.IsSettingsInitialized() is True
 
-        # Start polling loop and enable device.
+        # Start communication polling
         device.StartPolling(250)  # 250ms polling rate.
         time.sleep(0.25)
         device.EnableDevice()
         time.sleep(0.25)  # Wait for device to enable.
 
+        # Load config from device file
         device.LoadMotorConfiguration(serial_no, DeviceConfiguration.DeviceSettingsUseOptionType.UseFileSettings)
 
         self.device_list[serial_no] = device
 
     def connect_solenoid(self, serial_no):
+        """Initializes a Thorlabs KCube solenoid controller."""
         device = KCubeSolenoid.CreateKCubeSolenoid(serial_no)
         device.Connect(serial_no)
 
-        # Ensure that the device settings have been initialized.
+        # Ensure settings loaded
         if not device.IsSettingsInitialized():
             print("solenoid")
             device.WaitForSettingsInitialized(10000)  # 10 second timeout.
@@ -282,24 +339,30 @@ class ThorlabsController:
         device.EnableDevice()
         time.sleep(0.25)  # Wait for device to enable.
 
+        # Set manually controlled mode
         device.SetOperatingMode(SolenoidStatus.OperatingModes.Manual)
 
         self.device_list[serial_no] = device
 
     def disconnect_all(self):
+        """Safely disconnects all connected Thorlabs devices."""
         for device_id, device in self.device_list.items():
-            if device_id[:2] == "55":
-                device.StopImmediate()
-            device.StopPolling()
-            device.Disconnect()
-            time.sleep(0.25)
+            try:
+                if device_id[:2] == MOUNT_PREFIX:
+                    device.StopImmediate()
+                device.StopPolling()
+                device.Disconnect()
+                time.sleep(0.25)
 
+            except Exception as e:
+                print(e)
         return
 
     def toggle_shutter(self, serial_no):
+        """Toggles solenoid shutter on/off."""
         device = self.device_list.get(serial_no)
 
-        if device is None or serial_no[:2] != "68":
+        if device is None or serial_no[:2] != SOLENOID_PREFIX:
             return
 
         state = device.GetOperatingState()
@@ -308,38 +371,36 @@ class ThorlabsController:
         else:
             device.SetOperatingState(SolenoidStatus.OperatingStates.Active)
 
-        return
-
     def open_shutter(self, serial_no):
+        """Opens solenoid shutter."""
         device = self.device_list.get(serial_no)
 
-        if device is None or serial_no[:2] != "68":
+        if device is None or serial_no[:2] != SOLENOID_PREFIX:
             return
 
         device.SetOperatingState(SolenoidStatus.OperatingStates.Active)
-
         time.sleep(0.25)
-        return
 
     def close_shutter(self, serial_no):
+        """Closes solenoid shutter."""
         device = self.device_list.get(serial_no)
 
-        if device is None or serial_no[:2] != "68":
+        if device is None or serial_no[:2] != SOLENOID_PREFIX:
             return
 
         device.SetOperatingState(SolenoidStatus.OperatingStates.Inactive)
-
         time.sleep(0.25)
-        return
 
     def home_mount(self, serial_no):
+        """Homes a rotation mount to its reference position."""
         device = self.device_list.get(serial_no)
 
-        if device is None or serial_no[:2] != "55":
+        if device is None or serial_no[:2] != MOUNT_PREFIX:
             return ["Error", "Unable to home device"]
 
         try:
-            # 60 second timeout, function will wait until the move completes or the timeout elapses, whichever comes first.
+            # 60 second timeout, function will wait until the move completes
+            # or the timeout elapses, whichever comes first.
             device.Home(60000)
             return ["Info", "Homed device"]
 
@@ -348,35 +409,40 @@ class ThorlabsController:
             return ["Error", "Unable to home device"]
 
     def set_mount_pos(self, serial_no, new_pos):
+        """Moves a rotation mount to a specific angle."""
         device = self.device_list.get(serial_no)
 
-        if device is None or serial_no[:2] != "55":
+        if device is None or serial_no[:2] != MOUNT_PREFIX:
             return
 
         try:
-            pos = Decimal(new_pos)  # Must be a .NET decimal.
+            pos = Decimal(str(new_pos))  # Must be a .NET decimal.
             device.MoveTo(pos, 60000)  # 60 second timeout.
 
         except Exception as e:
             print(e)
 
-        return
-
     def update_mount_positions(self, dev_id, new_positions):
+        """Stores rotation mount position list for later automation."""
         self.rotation_mount_positions[dev_id] = new_positions
 
-    def update_mount_position_combos(self, combo_id, combo_dict):
-        self.mount_position_combos[combo_id] = combo_dict
+    def update_mount_position_combos(self, combos_dict):
+        """Stores all mount combinations for automated measurements."""
+        self.mount_position_combos = combos_dict
 
     def update_mount_default_angle(self, dev_id, new_angle):
+        """Sets default pre-measurement angle for mount."""
         self.mount_default_angles[dev_id] = new_angle
 
 
 # ------------------- WORKER THREAD ------------------- #
 
 class MeasurementWorker(QThread):
-    data_ready = pyqtSignal(list, list)
-    measurement_finished = pyqtSignal()
+    """
+    Runs measurement operations in the background so the UI remains responsive.
+    """
+    data_ready = pyqtSignal(list, list)  # Emitted after each measurement
+    measurement_finished = pyqtSignal()  # Emitted when measurement ends
 
     def __init__(self, avaspec: AvaspecController, thorlabs: ThorlabsController,
                  measurement_mode="Scope", measurement_type="Single", filename="result"):
@@ -386,13 +452,16 @@ class MeasurementWorker(QThread):
         self.measurement_mode = measurement_mode
         self.measurement_type = measurement_type
         self.filename = filename
+
+        # Thread control flags
         self.running = True
         self.paused = False
         self.pause_cond = QWaitCondition()
         self.mutex = QMutex()
 
     def run(self):
-        measurement_func = self.avaspec.measure_scope
+        """Main thread entry point. Chooses measurement type to execute."""
+        # Select correct measurement function
         if self.measurement_mode == "Absorbance":
             measurement_func = self.avaspec.measure_absorbance
         elif self.measurement_mode == "Transmittance":
@@ -400,6 +469,7 @@ class MeasurementWorker(QThread):
         else:
             measurement_func = self.avaspec.measure_scope
 
+        # Choose how measurement will run
         if self.measurement_type == "Continuous":
             self.run_continuous(measurement_func)
         elif self.measurement_type == "Series":
@@ -410,21 +480,23 @@ class MeasurementWorker(QThread):
             self.run_single(measurement_func)
 
     def run_single(self, meas_function):
+        """Runs one single measurement cycle."""
         self.avaspec.ttl_on()
-        QtTest.QTest.qWait(100)
+        time.sleep(0.1)
 
         wl, data = meas_function()
-        self.data_ready.emit(wl, data)
+        self.data_ready.emit(wl, data)  # Send data to UI
         time.sleep(0.01)
 
         self.avaspec.ttl_off()
-        QtTest.QTest.qWait(100)
+        time.sleep(0.1)
 
         self.measurement_finished.emit()
 
     def run_continuous(self, meas_function):
+        """Continuously measures until stopped."""
         self.avaspec.ttl_on()
-        QtTest.QTest.qWait(100)
+        time.sleep(0.1)
 
         while self.running:
             wl, data = meas_function()
@@ -432,9 +504,15 @@ class MeasurementWorker(QThread):
             time.sleep(0.01)
 
         self.avaspec.ttl_off()
-        QtTest.QTest.qWait(100)
+        time.sleep(0.1)
 
     def run_series(self, meas_function):
+        """
+        Runs multistep automated measurements:
+        1. Open shutter for timed illumination
+        2. Change rotation mount positions
+        3. Measure & save at each configuration
+        """
         self.thorlabs.solenoid_open_timers = read_shutter_timers()
 
         cumulative_time = 0
@@ -444,39 +522,45 @@ class MeasurementWorker(QThread):
                 break
             self.wait_if_paused()
 
-            """ #0 Setting default rotation mount positions in preparation for illumination """
+            # 0) Move mounts to default illumination positions
             for mount_id, pos in self.thorlabs.mount_default_angles.items():
                 self.thorlabs.set_mount_pos(mount_id, pos)
 
-            """ #1 Sample illumination """
-            self.thorlabs.open_shutter("68250034")
-            for i in range(int(t * 10)):
-                if not self.running:
-                    break
+            # 1) Illuminate sample for duration t
+            self.thorlabs.open_shutter(SOLENOID_ID)
+            elapsed = 0.0
+            step = 0.1
+            while elapsed < t and self.running:
                 if self.paused:
-                    self.thorlabs.close_shutter("68250034")
-                self.wait_if_paused()
-                if not self.paused:
-                    self.thorlabs.open_shutter("68250034")
-                QtTest.QTest.qWait(t * 100)
-            self.thorlabs.close_shutter("68250034")
+                    self.thorlabs.close_shutter(SOLENOID_ID)
+                    self.wait_if_paused()
+                    # when resume returns, reopen shutter
+                    if not self.running:
+                        break
+                    self.thorlabs.open_shutter(SOLENOID_ID)
+                time.sleep(step)
+                elapsed += step
+            self.thorlabs.close_shutter(SOLENOID_ID)
 
             cumulative_time += t
 
+            # 2) Iterate through all mount combinations and measure
             for pos_combination_id, pos_combination in self.thorlabs.mount_position_combos.items():
-                """ #2 Setting rotation mount positions for measurement """
+
+                # Move mounts to new positions
                 for mount_id, position in pos_combination.items():
                     self.thorlabs.set_mount_pos(mount_id, int(position))
 
-                """ #3 Measurement """
+                # 3) Perform measurement
                 self.avaspec.ttl_on()
-                QtTest.QTest.qWait(100)
+                time.sleep(0.1)
 
                 wl, data = meas_function(pos_combination_id)
 
                 self.avaspec.ttl_off()
-                QtTest.QTest.qWait(100)
+                time.sleep(0.1)
 
+                # Save result
                 save_to_new_file(f"{self.filename}_{cumulative_time}s_{pos_combination_id}",
                               f"Results_{self.measurement_mode}", wl, data)
 
@@ -485,7 +569,9 @@ class MeasurementWorker(QThread):
         self.measurement_finished.emit()
 
     def run_reference(self):
+        """Measures and saves reference spectra for all mount configurations."""
         for pos_combination_id, pos_combination in self.thorlabs.mount_position_combos.items():
+            # Move mounts to reference positions
             for mount_id, position in pos_combination.items():
                 self.thorlabs.set_mount_pos(mount_id, int(position))
 
@@ -496,18 +582,24 @@ class MeasurementWorker(QThread):
         self.measurement_finished.emit()
 
     def stop(self):
+        """Stops the running thread and unpauses if necessary."""
         self.running = False
         self.resume()
-        self.wait()
+        self.wait()  # Wait for thread to exit cleanly
 
     def pause(self):
+        """Pauses ongoing measurement."""
         self.paused = True
 
     def resume(self):
+        """Resumes measurement from paused state."""
+        self.mutex.lock()
         self.paused = False
         self.pause_cond.wakeAll()
+        self.mutex.unlock()
 
     def wait_if_paused(self):
+        """Blocks thread while paused."""
         self.mutex.lock()
         while self.paused:
             self.pause_cond.wait(self.mutex)
@@ -516,21 +608,28 @@ class MeasurementWorker(QThread):
 
 # -------------------- MAIN WINDOW -------------------- #
 
-main_ui_class, main_baseclass = uic.loadUiType("main_window.ui")
+try:
+    main_ui_class, main_baseclass = uic.loadUiType("main_window.ui")
+except Exception as e:
+    raise RuntimeError(f"Failed to load UI 'main_window.ui': {e}")
+
+
 class MainWindow(main_ui_class, main_baseclass):
+    """The main GUI window controlling all functionality."""
+
     def __init__(self):
         super().__init__()
         self.setupUi(self)
 
         self.setWindowTitle("Avaspec / Thorlabs Automation thing")
 
-        # Initializing device controllers
+        # Initialize controllers
         self.avaspec = AvaspecController()
         self.thorlabs = ThorlabsController()
         self.measurement_thread = None
         self.paused = False
 
-        # Connecting action triggers from the window selection bar to show/hide the specified setting windows
+        # Initialize and connect settings windows
         self.ava_settings_window = AvaSettingWindow()
         self.actionAvasoft.triggered.connect(
             lambda checked: self.toggle_window(self.ava_settings_window)
@@ -545,14 +644,14 @@ class MainWindow(main_ui_class, main_baseclass):
         self.mount_settings_window.settings_changed.connect(self.thorlabs.update_mount_position_combos)
         self.actionRotation_Mount.setEnabled(False)
 
-        # Initializing button states
+        # Disable measurement buttons until devices are connected
         self.StartMeasBtn.setEnabled(False)
         self.PauseMeasBtn.setEnabled(False)
         self.StopMeasBtn.setEnabled(False)
         self.SaveRefBtn.setEnabled(False)
         self.SaveDrkBtn.setEnabled(False)
 
-        # Connecting button events to methods
+        # Connect buttons to handler functions
         self.StartMeasBtn.clicked.connect(self.start_measurement_btn_clicked)
         self.PauseMeasBtn.clicked.connect(self.pause_measurement_btn_clicked)
         self.StopMeasBtn.clicked.connect(self.stop_measurement_btn_clicked)
@@ -565,7 +664,7 @@ class MainWindow(main_ui_class, main_baseclass):
         self.testRotBtn.clicked.connect(self.change_positions)
         self.testShutterBtn.clicked.connect(self.toggle_shutter)
 
-        # Initializing data plotting
+        # Setup plot window
         self.line = None
         self.graph.setBackground("w")
         self.init_plot(None, None, None, "", "")
@@ -573,16 +672,19 @@ class MainWindow(main_ui_class, main_baseclass):
         self.file_name_to_save = ""
 
     def closeEvent(self, event):
-        """
-        Called right before the program is shut down - ensures that all thorlabs devices will be disconnected
-        properly. Causes issues with later connectivity otherwise.
-        """
-        self.stop_measurement_btn_clicked()
+        """Ensures all devices are safely disconnected on program exit."""
+        try:
+            if self.measurement_thread and self.measurement_thread.isRunning():
+                self.measurement_thread.stop()
+        except Exception as e:
+            print(e)
+
         self.thorlabs.disconnect_all()
         event.accept()
 
     @pyqtSlot()
     def toggle_window(self, window):
+        """Shows or hides a settings window."""
         if window.isVisible():
             window.hide()
         else:
@@ -590,6 +692,7 @@ class MainWindow(main_ui_class, main_baseclass):
 
     @pyqtSlot()
     def change_positions(self):
+        """Test function: moves a mount through all stored positions."""
         dev_id = "55360064"
         pos_list = self.thorlabs.rotation_mount_positions.get(dev_id)
 
@@ -602,6 +705,7 @@ class MainWindow(main_ui_class, main_baseclass):
 
     @pyqtSlot()
     def toggle_shutter(self):
+        """Opens/closes solenoid based on timers in the shutter_timer file."""
         self.testShutterBtn.setEnabled(False)
         self.thorlabs.solenoid_open_timers = read_shutter_timers()
 
@@ -615,18 +719,14 @@ class MainWindow(main_ui_class, main_baseclass):
 
     @pyqtSlot()
     def open_comm_btn_clicked(self):
-        """
-        Modified method from Avasoft PyQt5 demo. Attempts to connect to an Avaspec spectrometer.
-
-        :return:
-        """
+        """Attempts to connect to Avaspec spectrometer."""
         ret = self.avaspec.connect_device()
 
         if ret == 0:
             QMessageBox.information(self, "Error", "Could not find a device")
             return
         else:
-            QMessageBox.information(self, "Info", "Found Serialnumber: " + ret)
+            QMessageBox.information(self, "Info", "Found Serialnumber: " + str(ret))
 
             self.StartMeasBtn.setEnabled(True)
             self.SaveRefBtn.setEnabled(True)
@@ -638,35 +738,35 @@ class MainWindow(main_ui_class, main_baseclass):
 
     @pyqtSlot()
     def connect_thorlabs_btn_clicked(self):
+        """Connects to Thorlabs devices and sets up rotation mount tabs."""
         msg = self.thorlabs.connect_devices()
         QMessageBox.information(self, msg[0], msg[1])
 
         if msg[0] == "Error":
             return
-        else:
-            for dev_id, devive in self.thorlabs.device_list.items():
-                if dev_id[:2] == "55":
-                    mount = self.mount_settings_window.add_tab(dev_id)
-                    mount.home_mount_signal.connect(self.thorlabs.home_mount)
-                    mount.update_mount_default_angles.connect(self.thorlabs.update_mount_default_angle)
-                    mount.update_mount_positions.connect(self.thorlabs.update_mount_positions)
 
-            self.connectThorlabs.setEnabled(False)
-            self.actionRotation_Mount.setEnabled(True)
+        # For each rotation mount, add a settings tab to the window
+        for dev_id, device in self.thorlabs.device_list.items():
+            if dev_id[:2] == MOUNT_PREFIX:
+                mount = self.mount_settings_window.add_tab(dev_id)
+                mount.home_mount_signal.connect(self.thorlabs.home_mount)
+                mount.update_mount_default_angles.connect(self.thorlabs.update_mount_default_angle)
+                mount.update_mount_positions.connect(self.thorlabs.update_mount_positions)
+
+        self.connectThorlabs.setEnabled(False)
+        self.actionRotation_Mount.setEnabled(True)
 
     @pyqtSlot()
     def start_measurement_btn_clicked(self):
-        """
-        Main method for running all measurements depending on the mode selected.
-
-        :return:
-        """
+        """Starts measurements based on the selected mode and type."""
 
         measurement_mode = self.SelectModeBox.currentText()
         measurement_type = self.SelectTypeBox.currentText()
 
+        # Hide settings window so user can't modify parameters during measurement
         self.ava_settings_window.hide()
 
+        # Disable controls during measurement
         self.StartMeasBtn.setEnabled(False)
         self.PauseMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(True)
@@ -676,6 +776,7 @@ class MainWindow(main_ui_class, main_baseclass):
         self.SelectTypeBox.setEnabled(False)
         self.menuBar.setEnabled(False)
 
+        # Set Y-axis limits depending on experiment type
         if measurement_mode == "Absorbance":
             y_lim = [0, 3]
         elif measurement_mode == "Transmittance":
@@ -683,12 +784,15 @@ class MainWindow(main_ui_class, main_baseclass):
         else:
             y_lim = None
 
+        # Prepare plot for incoming data
         self.init_plot(self.avaspec.min_wavelength, self.avaspec.max_wavelength, y_lim,
                        "Wavelength (nm)", measurement_mode)
 
+        # Stop previous thread if running
         if self.measurement_thread and self.measurement_thread.isRunning():
             self.measurement_thread.stop()
 
+        # Create and start measurement thread
         self.measurement_thread = MeasurementWorker(self.avaspec, self.thorlabs,
                                                     measurement_mode, measurement_type,
                                                     self.file_name_to_save)
@@ -699,6 +803,7 @@ class MainWindow(main_ui_class, main_baseclass):
 
     @pyqtSlot()
     def pause_measurement_btn_clicked(self):
+        """Pauses or resumes measurement."""
         if not self.measurement_thread:
             return
         if self.paused:
@@ -712,11 +817,7 @@ class MainWindow(main_ui_class, main_baseclass):
 
     @pyqtSlot()
     def stop_measurement_btn_clicked(self):
-        """
-        Completely stops all ongoing measurements as well as RH changes
-
-        :return:
-        """
+        """Stops measurement thread and resets UI."""
         if self.measurement_thread:
             self.measurement_thread.stop()
 
@@ -733,13 +834,10 @@ class MainWindow(main_ui_class, main_baseclass):
 
     @pyqtSlot()
     def save_ref_btn_clicked(self):
-        """
-        Saves and plots reference spectra. Always draws spectra as scope, independent of the mode selected.
-
-        :return:
-        """
+        """Runs reference measurement via worker thread."""
         self.ava_settings_window.hide()
 
+        # Lock UI
         self.StartMeasBtn.setEnabled(False)
         self.PauseMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(True)
@@ -749,73 +847,78 @@ class MainWindow(main_ui_class, main_baseclass):
         self.SelectTypeBox.setEnabled(False)
         self.menuBar.setEnabled(False)
 
+        # Plot as raw scope measurement
         self.init_plot(self.avaspec.min_wavelength, self.avaspec.max_wavelength, None,
                        "Wavelength (nm)", "Scope")
 
+        # Stop previous measurement if still active
         if self.measurement_thread and self.measurement_thread.isRunning():
             self.measurement_thread.stop()
 
+        # Start reference measurement
         self.measurement_thread = MeasurementWorker(self.avaspec, self.thorlabs,
                                                     "Scope", "Reference",
                                                     self.file_name_to_save)
+
+        self.measurement_thread.data_ready.connect(self.plot)
         self.measurement_thread.measurement_finished.connect(self.stop_measurement_btn_clicked)
         self.measurement_thread.start()
 
     @pyqtSlot()
     def save_dark_btn_clicked(self):
-        """
-        Saves and plots dark spectra. Always draws spectra as scope, independent of the mode selected.
-
-        :return:
-        """
+        """Captures and plots dark spectrum."""
         self.init_plot(self.avaspec.min_wavelength, self.avaspec.max_wavelength, None,
                        "Wavelength (nm)", "Scope")
 
         wl, data = self.avaspec.save_dark()
         self.plot(wl, data)
 
-    @pyqtSlot()
     def init_plot(self, min_x, max_x, yrange, x_label, y_label):
-        """
-        Initialises pyqtgraph with given parameters
-
-        :param min_x: float, lowest x value shown
-        :param max_x: float, largest x value shown
-        :param yrange: [min_y, max_y]
-        :param x_label: str,
-        :param y_label: str,
-        :return:
-        """
+        """Initializes plot axis, ranges, labels, and line object."""
         self.graph.clear()
 
         pen = pg.mkPen(color=(0, 0, 0), width=1.1, style=Qt.PenStyle.SolidLine)
         self.graph.setLabel("left", f"{y_label}")
         self.graph.setLabel("bottom", f"{x_label}")
+
+        # Configure axes
         if max_x:
             self.graph.setXRange(min_x, max_x)
         if yrange:
             self.graph.setYRange(yrange[0], yrange[1])
+
         self.graph.showGrid(x=True, y=True)
 
+        # Create line plot object
         self.line = self.graph.plot([0], [0], pen=pen)
 
-    @pyqtSlot()
     def plot(self, x, y):
+        """Plots current measurement."""
         self.line.setData(x, y)
         self.repaint()
 
-    @pyqtSlot()
     def update_plot_range(self, min_x, max_x):
+        """Allows dynamic updating of X-axis."""
         self.graph.setXRange(min_x, max_x)
 
-    def save_file_changed(self):
-        self.file_name_to_save = self.fileNameEdit.text()
+    def save_file_changed(self, text=None):
+        """Updates output filename as user types."""
+        if text is None:
+            self.file_name_to_save = self.fileNameEdit.text()
+        else:
+            self.file_name_to_save = text
 
 
 # -------------------- SETTING WINDOWS ---------------- #
 
-ava_ui_class, ava_baseclass = uic.loadUiType("ava_settings_window.ui")
+try:
+    ava_ui_class, ava_baseclass = uic.loadUiType("ava_settings_window.ui")
+except Exception as e:
+    raise RuntimeError(f"Failed to load UI 'ava_settings_window.ui': {e}")
+
+
 class AvaSettingWindow(ava_ui_class, ava_baseclass):
+    """Window for adjusting Avaspec measurement parameters."""
     settings_changed = pyqtSignal(list)
 
     def __init__(self):
@@ -824,12 +927,15 @@ class AvaSettingWindow(ava_ui_class, ava_baseclass):
 
         self.setWindowTitle("Avasoft 8 Settings")
 
+        # Emit updated parameters whenever user changes values
         self.IntTime.valueChanged.connect(self.parameter_changed)
         self.NumAvg.valueChanged.connect(self.parameter_changed)
         self.MinWavelength.valueChanged.connect(self.parameter_changed)
         self.MaxWavelength.valueChanged.connect(self.parameter_changed)
 
+    @pyqtSlot()
     def parameter_changed(self):
+        """Sends updated spectrometer parameters to main window."""
         int_time = self.IntTime.value()
         avg_num = self.NumAvg.value()
         min_wavelength = self.MinWavelength.value()
@@ -838,8 +944,14 @@ class AvaSettingWindow(ava_ui_class, ava_baseclass):
         self.settings_changed.emit([int_time, avg_num, min_wavelength, max_wavelength])
 
 
-rotation_mount_widget_class, rotation_mount_widget_baseclass = uic.loadUiType("rotation_mount_settings_widget.ui")
+try:
+    rotation_mount_widget_class, rotation_mount_widget_baseclass = uic.loadUiType("rotation_mount_settings_widget.ui")
+except Exception as e:
+    raise RuntimeError(f"Failed to load UI 'rotation_mount_settings_widget.ui': {e}")
+
+
 class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_baseclass):
+    """Widget that controls settings for a single rotation mount."""
     update_mount_positions = pyqtSignal(str, list)
     update_mount_default_angles = pyqtSignal(str, int)
     home_mount_signal = pyqtSignal(str)
@@ -848,6 +960,7 @@ class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_bas
         super().__init__()
         self.setupUi(self)
 
+        # Connect UI events
         self.StartPos.valueChanged.connect(self.position_params_changed)
         self.EndPos.valueChanged.connect(self.position_params_changed)
         self.RotationStep.valueChanged.connect(self.position_params_changed)
@@ -859,28 +972,38 @@ class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_bas
         self.update_positions()
 
     def update_positions(self):
+        """Generates list of valid rotation positions for this mount."""
         min_pos = int(self.StartPos.value())
         max_pos = int(self.EndPos.value())
-        pos_interval = int(self.RotationStep.value())
+        pos_interval = int(self.RotationStep.value()) or 1
+        self.pos_list = list(range(min_pos, max_pos + 1, pos_interval))
 
-        self.pos_list.clear()
-        for pos in range(min_pos, max_pos, pos_interval):
-            self.pos_list.append(pos)
-
+    @pyqtSlot()
     def position_params_changed(self):
+        """Updates list of positions and informs main window."""
         self.update_positions()
         self.update_mount_positions.emit(self.device_id, self.pos_list)
 
+    @pyqtSlot()
     def default_angle_changed(self):
+        """Informs main window about updated default angle."""
         new_angle = int(self.DefaultAngle.value())
         self.update_mount_default_angles.emit(self.device_id, new_angle)
 
+    @pyqtSlot()
     def home_device(self):
+        """Requests mount homing."""
         self.home_mount_signal.emit(self.device_id)
 
 
-rotation_mount_ui_class, rotation_mount_baseclass = uic.loadUiType("rotation_mount_settings_window.ui")
+try:
+    rotation_mount_ui_class, rotation_mount_baseclass = uic.loadUiType("rotation_mount_settings_window.ui")
+except Exception as e:
+    raise RuntimeError(f"Failed to load UI 'rotation_mount_settings_window.ui': {e}")
+
+
 class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_baseclass):
+    """Window that manages multiple rotation mount widgets."""
     settings_changed = pyqtSignal(object)
 
     def __init__(self):
@@ -893,6 +1016,7 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
 
     @pyqtSlot()
     def add_tab(self, dev_id):
+        """Adds a new rotation mount tab."""
         new_rotation_mount = RotationMountWidget(dev_id)
         self.tabs[dev_id] = new_rotation_mount
         self.RotationMountSelection.addTab(new_rotation_mount, f"{dev_id}")
@@ -900,9 +1024,14 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
 
         return new_rotation_mount
 
-    def calculate_pos_combinations(self, dev_id, pos_list):
-        # Creating unique identifiers for every position of each mount
-        all_rotation_mount_positions = list()
+    def calculate_pos_combinations(self, device_id, position_list):
+        """
+        Creates combinations of positions from all mounts.
+        Used in automated measurement sequences.
+        """
+        all_rotation_mount_positions = []
+
+        # Build list of possible position labels for each device
         for dev_id, mount in self.tabs.items():
             pos_ids = list()
             for pos in mount.pos_list:
@@ -911,15 +1040,17 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
 
         mount_position_combinations = defaultdict(dict)
 
+        # Create Cartesian product of all position lists
         for unique_pos_combination in product(*all_rotation_mount_positions):
-            pos_combination_id = ""
             pos_combination = dict()
 
+            parts = []
             for i in unique_pos_combination:
                 mount_id = i.split('_')[0]
                 pos = i.split('_')[1]
                 pos_combination[mount_id] = pos
-                pos_combination_id += f"{pos}_"
+                parts.append(pos)
+            pos_combination_id = "_".join(parts)
 
             mount_position_combinations[pos_combination_id] = pos_combination
 
@@ -931,50 +1062,45 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
         
 def save_to_new_file(file_name, folder, x, y):
     """
-    Saves a list of values to a new file --> overwrites an existing file of the name.
-
-    :param file_name: str, creates a .txt file with this name and saves the spectrum data to it
-    :param folder: str, folder to save data to
-    :param x [float], input list of spectrum values to save
-    :param y [float], input list of time/wavelength values corresponding to spectrum values
-    :return:
+    Saves X–Y data (spectrum) into a new text file, overwriting existing file.
+    Each line: WAV\tVALUE
     """
-
-    complete_file_path = os.path.join(PROJECT_PATH, folder)
-
-    if not os.path.exists(f"{complete_file_path}"):
-        os.makedirs(f"{complete_file_path}")
-
-    try:
-        with open(f"{complete_file_path}\\{file_name}.txt", "w") as fh:
-            for n in range(len(y)):
-                fh.write(f"{x[n]:.1f}\t{y[n]}\n")
-    except IndexError:
-        return
+    complete_folder = os.path.join(PROJECT_PATH, folder)
+    os.makedirs(complete_folder, exist_ok=True)
+    path = os.path.join(complete_folder, f"{file_name}.txt")
+    if len(x) != len(y):
+        raise ValueError("x and y must be same length")
+    with open(path, "w", encoding="utf-8") as fh:
+        for xv, yv in zip(x, y):
+            fh.write(f"{xv:.1f}\t{yv:.6g}\n")
 
 
 def read_shutter_timers():
-    file_output = []
-
-    complete_file_path = os.path.join(PROJECT_PATH, "shutter_timer.txt")
-    if not os.path.exists(complete_file_path):
+    """
+    Reads list of shutter open times (in seconds)
+    from shutter_timer.txt.
+    """
+    path = os.path.join(PROJECT_PATH, "shutter_timer.txt")
+    if not os.path.exists(path):
         return []
-
-    try:
-        with open(f"{complete_file_path}", "r") as fh:
-            for line in fh:
-                file_output.append(int(line.strip()))
-
-        return file_output
-
-    except ValueError:
-        return []
+    out = []
+    with open(path, "r", encoding="utf-8") as fh:
+        for line in fh:
+            s = line.strip()
+            if not s:
+                continue
+            try:
+                out.append(float(s))
+            except ValueError:
+                # log or skip invalid lines
+                continue
+    return out
 
 
 # ---------------------- MAIN ---------------------- #
 
 def main():
-    # Initializing the PyQt application window
+    """Starts application and loads main window."""
     app = QApplication(sys.argv)
     app.lastWindowClosed.connect(app.quit)
     window = MainWindow()

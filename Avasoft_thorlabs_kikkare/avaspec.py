@@ -5,7 +5,10 @@ import ctypes
 import struct
 from enum import Enum
 
-AVAPATH = str(os.environ["AVASPEC_PATH"])
+
+AVAPATH = str(os.environ.get("AVASPEC_PATH"))
+if not AVAPATH:
+    raise RuntimeError("AVAPATH not set in environment or .env")
 
 if 'linux' in sys.platform: # Linux will have 'linux' or 'linux2'
     lib = ctypes.CDLL("/usr/local/lib/libavs.so.0")
