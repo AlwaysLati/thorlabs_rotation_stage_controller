@@ -563,17 +563,3 @@ def AVS_SetSyncMode(handle, enable):
     AVS_SetSyncMode = prototype(("AVS_SetSyncMode", lib), paramflags)
     ret = AVS_SetSyncMode(handle, enable)
     return ret
-
-def ttl_on(handle, port=3):
-    """Set TTL output HIGH (light on)."""
-    ret = AVS_SetDigOut(handle, port, 1)
-    if ret < 0:
-        raise RuntimeError(f"AVS_SetDigOut returned {ret}")
-    return ret
-
-def ttl_off(handle, port=3):
-    """Set TTL output LOW (light off)."""
-    ret = AVS_SetDigOut(handle, port, 0)
-    if ret < 0:
-        raise RuntimeError(f"AVS_SetDigOut returned {ret}")
-    return ret
