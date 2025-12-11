@@ -1,6 +1,6 @@
 Necessary Packages:
 
-PyQt5
+PyQt6
 pyqtgraph
 pythonnet
 python-dotenv
