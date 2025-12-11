@@ -56,7 +56,7 @@ from avaspec import (
 MOUNT_PREFIX = "55"
 SOLENOID_PREFIX = "68"
 MOUNT_ID_1 = "55360064"
-MOUNT_ID_2 = ""
+MOUNT_ID_2 = "55536954"
 SOLENOID_ID = "68250034"
 
 # ----------------- DEVICE CONTROLLERS ----------------- #
@@ -416,7 +416,8 @@ class ThorlabsController:
             return
 
         try:
-            pos = Decimal(str(new_pos))  # Must be a .NET decimal.
+            print(f"Moving: {serial_no}")
+            pos = Decimal(new_pos)  # Must be a .NET decimal.
             device.MoveTo(pos, 60000)  # 60 second timeout.
 
         except Exception as e:
@@ -693,15 +694,13 @@ class MainWindow(main_ui_class, main_baseclass):
     @pyqtSlot()
     def change_positions(self):
         """Test function: moves a mount through all stored positions."""
-        dev_id = "55360064"
-        pos_list = self.thorlabs.rotation_mount_positions.get(dev_id)
+        # 2) Iterate through all mount combinations and measure
+        for pos_combination_id, pos_combination in self.thorlabs.mount_position_combos.items():
 
-        if pos_list is None:
-            print("Error")
-            return
-
-        for pos in pos_list:
-            self.thorlabs.set_mount_pos(dev_id, pos)
+            # Move mounts to new positions
+            for mount_id, position in pos_combination.items():
+                print(f"{mount_id}: {position}")
+                self.thorlabs.set_mount_pos(mount_id, int(position))
 
     @pyqtSlot()
     def toggle_shutter(self):
@@ -752,6 +751,8 @@ class MainWindow(main_ui_class, main_baseclass):
                 mount.home_mount_signal.connect(self.thorlabs.home_mount)
                 mount.update_mount_default_angles.connect(self.thorlabs.update_mount_default_angle)
                 mount.update_mount_positions.connect(self.thorlabs.update_mount_positions)
+
+                mount.update_positions()
 
         self.connectThorlabs.setEnabled(False)
         self.actionRotation_Mount.setEnabled(True)
@@ -969,7 +970,6 @@ class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_bas
 
         self.device_id = device_id
         self.pos_list = []
-        self.update_positions()
 
     def update_positions(self):
         """Generates list of valid rotation positions for this mount."""
@@ -1051,6 +1051,7 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
                 pos_combination[mount_id] = pos
                 parts.append(pos)
             pos_combination_id = "_".join(parts)
+            print(pos_combination_id)
 
             mount_position_combinations[pos_combination_id] = pos_combination
 
@@ -1090,7 +1091,7 @@ def read_shutter_timers():
             if not s:
                 continue
             try:
-                out.append(float(s))
+                out.append(int(s))
             except ValueError:
                 # log or skip invalid lines
                 continue
