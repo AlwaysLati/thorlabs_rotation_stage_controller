@@ -55,8 +55,8 @@ from avaspec import (
 # ---------------- Global constants --------------------
 MOUNT_PREFIX = "55"
 SOLENOID_PREFIX = "68"
-MOUNT_ID_1 = "55360064"
-MOUNT_ID_2 = "55536954"
+POLARIZER_MOUNT_ID = "55360064"
+STAGE_MOUNT_ID = "55536954"
 SOLENOID_ID = "68250034"
 
 # ----------------- DEVICE CONTROLLERS ----------------- #
@@ -154,7 +154,7 @@ class AvaspecController:
         measconfig.m_IntegrationTime = self.int_time
         measconfig.m_IntegrationDelay = 0
         measconfig.m_NrAverages = self.avg_num
-        measconfig.m_CorDynDark_m_Enable = 0  # nesting of types does NOT work!!
+        measconfig.m_CorDynDark_m_Enable = 1  # nesting of types does NOT work!!
         measconfig.m_CorDynDark_m_ForgetPercentage = 0
         measconfig.m_Smoothing_m_SmoothPix = self.smoothing
         measconfig.m_Smoothing_m_SmoothModel = 0
@@ -198,6 +198,9 @@ class AvaspecController:
         Computes absorbance spectrum using:
             A = -log10( (Sample - Dark) / (Reference - Dark) )
         """
+        if ref_id == "":
+            ref_id = next(iter(self.referencedata))
+
         ref = self.referencedata.get(ref_id)
         if ref is None:
             return
@@ -218,6 +221,9 @@ class AvaspecController:
         Computes transmittance spectrum using:
             T (%) = 100 * (Sample - Dark) / (Reference - Dark)
         """
+        if ref_id == "":
+            ref_id = next(iter(self.referencedata))
+
         ref = self.referencedata.get(ref_id)
         if ref is None:
             return
@@ -681,6 +687,10 @@ class MainWindow(main_ui_class, main_baseclass):
             print(e)
 
         self.thorlabs.disconnect_all()
+
+        self.ava_settings_window.close()
+        self.mount_settings_window.close()
+
         event.accept()
 
     @pyqtSlot()
@@ -765,7 +775,8 @@ class MainWindow(main_ui_class, main_baseclass):
         measurement_type = self.SelectTypeBox.currentText()
 
         # Hide settings window so user can't modify parameters during measurement
-        self.ava_settings_window.hide()
+        self.ava_settings_window.close()
+        self.mount_settings_window.close()
 
         # Disable controls during measurement
         self.StartMeasBtn.setEnabled(False)
@@ -1019,7 +1030,15 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
         """Adds a new rotation mount tab."""
         new_rotation_mount = RotationMountWidget(dev_id)
         self.tabs[dev_id] = new_rotation_mount
-        self.RotationMountSelection.addTab(new_rotation_mount, f"{dev_id}")
+
+        if dev_id == POLARIZER_MOUNT_ID:
+            tab_name = "Polarizer Rotation Mount"
+        else:
+            tab_name = "Sample Rotation Mount"
+
+        self.RotationMountSelection.addTab(new_rotation_mount, f"{tab_name}")
+
+
         new_rotation_mount.update_mount_positions.connect(self.calculate_pos_combinations)
 
         return new_rotation_mount
