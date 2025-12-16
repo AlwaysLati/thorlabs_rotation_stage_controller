@@ -18,7 +18,7 @@
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>320</y>
+      <y>290</y>
       <width>141</width>
       <height>23</height>
      </rect>
@@ -45,7 +45,7 @@ QPushButton:enabled {
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>400</y>
+      <y>390</y>
       <width>141</width>
       <height>23</height>
      </rect>
@@ -126,37 +126,11 @@ QPushButton:enabled {
      </rect>
     </property>
    </widget>
-   <widget class="QPushButton" name="testRotBtn">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>250</y>
-      <width>81</width>
-      <height>24</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Test Rotation</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="testShutterBtn">
-    <property name="geometry">
-     <rect>
-      <x>100</x>
-      <y>250</y>
-      <width>81</width>
-      <height>24</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Test Shutter</string>
-    </property>
-   </widget>
    <widget class="QPushButton" name="PauseMeasBtn">
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>360</y>
+      <y>340</y>
       <width>141</width>
       <height>23</height>
      </rect>
@@ -257,20 +231,7 @@ QPushButton:enabled {
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>290</y>
-      <width>171</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="orientation">
-     <enum>Qt::Orientation::Horizontal</enum>
-    </property>
-   </widget>
-   <widget class="Line" name="line_2">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>220</y>
+      <y>240</y>
       <width>171</width>
       <height>16</height>
      </rect>
@@ -314,6 +275,7 @@ QPushButton:enabled {
     </property>
     <addaction name="actionAvasoft"/>
     <addaction name="actionRotation_Mount"/>
+    <addaction name="actionSolenoid"/>
    </widget>
    <widget class="QMenu" name="menuConnect">
     <property name="title">
@@ -343,6 +305,11 @@ QPushButton:enabled {
   <action name="actionRotation_Mount">
    <property name="text">
     <string>Rotation Mount</string>
+   </property>
+  </action>
+  <action name="actionSolenoid">
+   <property name="text">
+    <string>Solenoid</string>
    </property>
   </action>
  </widget>

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>225</width>
-    <height>283</height>
+    <width>315</width>
+    <height>321</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,8 +18,8 @@
     <rect>
      <x>20</x>
      <y>20</y>
-     <width>181</width>
-     <height>231</height>
+     <width>201</width>
+     <height>281</height>
     </rect>
    </property>
    <property name="title">
@@ -86,6 +86,9 @@
       <height>22</height>
      </rect>
     </property>
+    <property name="minimum">
+     <number>1</number>
+    </property>
     <property name="maximum">
      <number>10000</number>
     </property>
@@ -101,6 +104,9 @@
       <width>71</width>
       <height>22</height>
      </rect>
+    </property>
+    <property name="minimum">
+     <number>1</number>
     </property>
     <property name="maximum">
      <number>10000</number>
@@ -139,6 +145,54 @@
     </property>
     <property name="value">
      <number>700</number>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="dynDarkCheckBox">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>240</y>
+      <width>131</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Dynamic Dark</string>
+    </property>
+    <property name="checked">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_5">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>180</y>
+      <width>151</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Smoothing:</string>
+    </property>
+   </widget>
+   <widget class="QSpinBox" name="Smoothing">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>200</y>
+      <width>71</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="minimum">
+     <number>1</number>
+    </property>
+    <property name="maximum">
+     <number>10000</number>
+    </property>
+    <property name="value">
+     <number>3</number>
     </property>
    </widget>
   </widget>
