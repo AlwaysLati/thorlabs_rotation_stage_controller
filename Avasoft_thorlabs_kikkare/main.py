@@ -506,6 +506,7 @@ class MeasurementWorker(QThread):
         time.sleep(0.1)
 
         while self.running:
+            self.wait_if_paused()
             wl, data = meas_function()
             self.data_ready.emit(wl, data)
             time.sleep(0.01)
@@ -553,9 +554,15 @@ class MeasurementWorker(QThread):
 
             # 2) Iterate through all mount combinations and measure
             for pos_combination_id, pos_combination in self.thorlabs.mount_position_combos.items():
+                if not self.running:
+                    break
+                self.wait_if_paused()
 
                 # Move mounts to new positions
                 for mount_id, position in pos_combination.items():
+                    if not self.running:
+                        break
+                    self.wait_if_paused()
                     self.thorlabs.set_mount_pos(mount_id, int(position))
 
                 # 3) Perform measurement
@@ -579,14 +586,27 @@ class MeasurementWorker(QThread):
         """Measures and saves reference spectra for all mount configurations."""
         self.avaspec.referencedata.clear()
 
-        for pos_combination_id, pos_combination in self.thorlabs.mount_position_combos.items():
-            # Move mounts to reference positions
-            for mount_id, position in pos_combination.items():
-                self.thorlabs.set_mount_pos(mount_id, int(position))
-
-            wl, data = self.avaspec.save_reference(pos_combination_id)
-
+        if len(self.thorlabs.mount_position_combos) == 0:
+            wl, data = self.avaspec.save_reference("")
             self.data_ready.emit(wl, data)
+
+        else:
+            for pos_combination_id, pos_combination in self.thorlabs.mount_position_combos.items():
+                if not self.running:
+                    break
+                self.wait_if_paused()
+
+                # Move mounts to reference positions
+                for mount_id, position in pos_combination.items():
+                    if not self.running:
+                        break
+                    self.wait_if_paused()
+
+                    self.thorlabs.set_mount_pos(mount_id, int(position))
+
+                wl, data = self.avaspec.save_reference(pos_combination_id)
+
+                self.data_ready.emit(wl, data)
 
         self.measurement_finished.emit()
 
@@ -616,7 +636,7 @@ class MeasurementWorker(QThread):
 
 
 class DeviceTestWorker(QThread):
-    test_finished = pyqtSignal()  # Emitted when test ends
+    test_finished = pyqtSignal(str)  # Emitted when test ends
 
     def __init__(self, thorlabs: ThorlabsController, device_id):
         super().__init__()
@@ -658,7 +678,7 @@ class DeviceTestWorker(QThread):
                 elapsed += step
             self.thorlabs.close_shutter(self.device_id)
 
-        self.test_finished.emit()
+        self.test_finished.emit(self.device_id)
 
     def test_mount(self):
         """Test function: moves a mount through all stored positions."""
@@ -670,7 +690,7 @@ class DeviceTestWorker(QThread):
                 print(f"{mount_id}: {position}")
                 self.thorlabs.set_mount_pos(mount_id, int(position))
 
-        self.test_finished.emit()
+        self.test_finished.emit(self.device_id)
 
     def stop(self):
         """Stops the running thread and unpauses if necessary."""
@@ -809,6 +829,9 @@ class MainWindow(main_ui_class, main_baseclass):
 
                 mount.position_params_changed()
                 mount.default_angle_changed()
+
+            elif dev_id[:2] == SOLENOID_PREFIX:
+                self.solenoid_settings_window.add_tab(dev_id)
 
         self.connectThorlabs.setEnabled(False)
         self.actionRotation_Mount.setEnabled(True)
@@ -1022,7 +1045,7 @@ class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_bas
     update_mount_default_angles = pyqtSignal(str, int)
     home_mount_signal = pyqtSignal(str)
     set_pos_signal = pyqtSignal(str, int)
-    test_mount_signal = pyqtSignal()
+    test_mount_signal = pyqtSignal(str)
 
     def __init__(self, device_id):
         super().__init__()
@@ -1035,7 +1058,7 @@ class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_bas
         self.DefaultAngle.valueChanged.connect(self.default_angle_changed)
         self.HomeDevBtn.clicked.connect(self.home_device)
         self.setPosBtn.clicked.connect(self.set_pos)
-        self.testMountBtn.clickec.connect(self.test_mount)
+        self.testMountBtn.clicked.connect(self.test_mount)
 
         self.device_id = device_id
         self.pos_list = []
@@ -1071,7 +1094,7 @@ class RotationMountWidget(rotation_mount_widget_class, rotation_mount_widget_bas
 
     @pyqtSlot()
     def test_mount(self):
-        self.test_mount_signal.emit()
+        self.test_mount_signal.emit(self.device_id)
 
 
 try:
@@ -1157,7 +1180,7 @@ class RotationMountSettingWindow(rotation_mount_ui_class, rotation_mount_basecla
         # Create and start measurement thread
         self.test_thread = DeviceTestWorker(self.thorlabs, dev_id)
         self.test_thread.test_finished.connect(self.stop_test)
-        self.measurement_thread.start()
+        self.test_thread.start()
 
     def toggle_shutter(self, dev_id):
         self.thorlabs.toggle_shutter(dev_id)
@@ -1195,7 +1218,7 @@ class SolenoidWidget(solenoid_widget_class, solenoid_widget_baseclass):
 
     @pyqtSlot()
     def test_solenoid_btn_clicked(self):
-        self.test.emit(self)
+        self.test.emit(self.device_id)
 
 
 try:
@@ -1245,13 +1268,13 @@ class SolenoidSettingWindow(solenoid_ui_class, solenoid_baseclass):
             return
 
         self.SolenoidSelection.setEnabled(False)
-        device.toggleSolenoidBtn.enabled(False)
+        device.toggleSolenoidBtn.setEnabled(False)
         device.testSolenoidBtn.setText("Stop Test")
 
         # Create and start measurement thread
         self.test_thread = DeviceTestWorker(self.thorlabs, dev_id)
         self.test_thread.test_finished.connect(self.stop_test)
-        self.measurement_thread.start()
+        self.test_thread.start()
 
     def toggle_shutter(self, dev_id):
         self.thorlabs.toggle_shutter(dev_id)
@@ -1260,7 +1283,7 @@ class SolenoidSettingWindow(solenoid_ui_class, solenoid_baseclass):
         device = self.tabs[dev_id]
         self.test_thread.stop()
         self.SolenoidSelection.setEnabled(True)
-        device.toggleSolenoidBtn.enabled(True)
+        device.toggleSolenoidBtn.setEnabled(True)
         device.testSolenoidBtn.setText("Test Solenoid Timers")
 
 
